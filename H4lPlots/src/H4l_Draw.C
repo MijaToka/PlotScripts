@@ -119,7 +119,7 @@ TH1D *agregateHistogram(
     fsString = makeFSString(fsFlav.value());
   }
 
-  TH1D *histogram;
+  TH1D *histogram = nullptr;
 
   for (auto sample : samples) {
     TString inHistName = TString::Format(
@@ -213,20 +213,19 @@ THStack stackHistograms(const std::array<TH1D *, 7> &histograms,
                                        latexVariable.c_str(), energyBinning);
   THStack stack = THStack(stackName, stackTitle);
 
-  Int_t lineColor;
   signal->SetLineColor(TColor::GetColor(204, 00, 00));
   signal->SetFillColor(TColor::GetColor(255, 155, 155));
 
-  EW->SetFillColor(TColor::GetColor(lineColor, 0, 0, 153));
+  EW->SetFillColor(TColor::GetColor(0, 0, 153));
   EW->SetFillColor(TColor::GetColor(3, 49, 185));
 
-  ZZTo4l->SetLineColor(lineColor);
+  ZZTo4l->SetLineColor(TColor::GetColor(0, 0, 153));
   ZZTo4l->SetFillColor(TColor::GetColor(155, 204, 255));
 
-  ggToZZ->SetLineColor(lineColor);
+  ggToZZ->SetLineColor(TColor::GetColor(0, 0, 153));
   ggToZZ->SetFillColor(TColor::GetColor(75, 120, 255));
 
-  DY->SetLineColor(lineColor);
+  DY->SetLineColor(TColor::GetColor(0, 0, 153));
   DY->SetFillColor(kOrange);
 
   ZX->SetLineColor(TColor::GetColor(0, 51, 0));
@@ -295,35 +294,40 @@ void H4l_Draw(const std::string &period = "2025",
   int energyBinning(4);
   float lumi(100);
 
-  for (FinalStateFlavor fsFlav : fsFlavors) {
-    for (const std::string &period : periods) {
+  outFile->cd();
 
-      if (inFiles.find(period) == inFiles.end()) {
-        inFiles[period] = TFile::Open(MC_FILL_FILES.at(period).c_str(), "READ");
-        if (!inFiles[period] || inFiles[period]->IsZombie())
-          throw std::runtime_error("Could not read file " +
-                                   MC_FILL_FILES.at(period).string() + "\n");
-      }
+  for (FinalStateFlavor fsFlav : fsFlavors)
+    for (const auto &energyBinning : {2, 4, 10}) {
+      for (const std::string &period : periods) {
 
-      if (firstFile) {
-        MCHistograms =
-            getMCHistos(inFiles[period], lumi, variable, fsFlav, energyBinning);
-      } else {
-        const auto currMCHistos =
-            getMCHistos(inFiles[period], lumi, variable, fsFlav, energyBinning);
-        for (MCHistoIdx idx :
-             {signalIdx, EWIdx, ZZTo4lIdx, ggToIdx, DYIdx, TTIdx, ZXIdx}) {
-          MCHistograms[idx]->Add(currMCHistos[idx]);
+        if (inFiles.find(period) == inFiles.end()) {
+          inFiles[period] =
+              TFile::Open(MC_FILL_FILES.at(period).c_str(), "READ");
+          if (!inFiles[period] || inFiles[period]->IsZombie())
+            throw std::runtime_error("Could not read file " +
+                                     MC_FILL_FILES.at(period).string() + "\n");
+        }
+
+        if (firstFile) {
+          MCHistograms = getMCHistos(inFiles[period], lumi, variable, fsFlav,
+                                     energyBinning);
+          firstFile = !firstFile;
+        } else {
+          const auto currMCHistos = getMCHistos(inFiles[period], lumi, variable,
+                                                fsFlav, energyBinning);
+          for (MCHistoIdx idx :
+               {signalIdx, EWIdx, ZZTo4lIdx, ggToIdx, DYIdx, TTIdx, ZXIdx}) {
+            MCHistograms[idx]->Add(currMCHistos[idx]);
+          }
         }
       }
-    }
 
-    THStack stack =
-        stackHistograms(MCHistograms, variable, fsFlav, energyBinning);
-    TCanvas canvas = TCanvas();
-    outFile->cd();
-    stack.Write();
-  }
+      THStack stack =
+          stackHistograms(MCHistograms, variable, fsFlav, energyBinning);
+      TCanvas canvas = TCanvas();
+      outFile->cd();
+      stack.Write();
+    }
 
   outFile->Close();
   return;
