@@ -164,6 +164,9 @@ makeModel(const std::string &variable, const std::string &sampleName,
     case FinalStateFlavor::Mu4:
       modelName += "_4mu";
       break;
+    case FinalStateFlavor::L4:
+    default:
+      break;
     }
   }
 
@@ -176,7 +179,7 @@ makeModel(const std::string &variable, const std::string &sampleName,
       .variable = variable,
   };
 
-  if (fsFlav.has_value())
+  if (fsFlav.has_value() && fsFlav.value() != FinalStateFlavor::L4)
     histogram.filter =
         TString::Format("FSflav==static_cast<Int_t>(%i)", fsFlav.value());
 
@@ -189,10 +192,9 @@ initializeHistogramModels(const std::string &sampleName) {
 
   for (const auto &[variable, xlabel] : labelPerVariable)
     for (HistogramBinning binning : binGranularities) {
-      auto currModel = makeModel(variable, sampleName, xlabel, binning);
-      models.push_back(currModel);
       for (FinalStateFlavor fsFlav : fsFlavors) {
-        currModel = makeModel(variable, sampleName, xlabel, binning, fsFlav);
+        auto currModel =
+            makeModel(variable, sampleName, xlabel, binning, fsFlav);
         models.push_back(currModel);
       }
     }
@@ -240,7 +242,7 @@ template <bool isMC> constexpr auto selectDataSet() {
 
 template <bool isMC> void run(const std::string &period = "2025") {
 
-  TString outName = TString::Format("H4lPlots_%s%s.root", isMC ? "MC" : "Data",
+  TString outName = TString::Format("H4lFill_%s%s.root", isMC ? "MC" : "Data",
                                     period.c_str());
   auto dataSets = selectDataSet<isMC>();
   auto INPUT_PATH = isMC ? MC_PATHS : DATA_PATHS;
@@ -251,7 +253,7 @@ template <bool isMC> void run(const std::string &period = "2025") {
   for (std::string channel : dataSets) {
     DataSet sample =
         DataSet{.name = channel,
-                .path = std::filesystem::path(INPUT_PATH[period] + channel)};
+                .path = std::filesystem::path(INPUT_PATH[period] / channel)};
 
     printf("Filling histograms from ROOT file(s) in %s \n",
            sample.path.c_str());
