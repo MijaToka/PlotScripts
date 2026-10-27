@@ -22,8 +22,9 @@
 #pragma cling add_include_path(                                                \
     "/eos/user/m/mtokarev/work_area/currentCMSSW/src")
 
-#include "PlotScripts/H4lPlots/interface/ChannelNames.hxx"
-#include "PlotScripts/H4lPlots/interface/Paths.hxx"
+#include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
+#include "PlotScripts/H4lPlots/src/H4l_Common.C"
+#include "PlotScripts/H4lPlots/src/Paths.hxx"
 
 Double_t get_genEventSumw(const std::string &file_path) {
   TFile *file = TFile::Open(file_path.c_str(), "READ");
@@ -72,7 +73,6 @@ Float_t get_genEventSumwSample(const std::vector<std::string> &files) {
   return genEventSumw;
 }
 
-template <bool isMC>
 ROOT::RDF::RNode initializeRDF(const std::vector<std::string> &files) {
   ROOT::RDF::RNode df = ROOT::RDataFrame("Events", files);
   df = df.Filter(
@@ -154,20 +154,7 @@ makeModel(const std::string &variable, const std::string &sampleName,
                                       binning.GeVVal, sampleName.c_str());
 
   if (fsFlav.has_value()) {
-    switch (fsFlav.value()) {
-    case FinalStateFlavor::E4:
-      modelName += "_4e";
-      break;
-    case FinalStateFlavor::E2Mu2:
-      modelName += "_2e2mu";
-      break;
-    case FinalStateFlavor::Mu4:
-      modelName += "_4mu";
-      break;
-    case FinalStateFlavor::L4:
-    default:
-      break;
-    }
+    modelName += makeFSString(fsFlav.value());
   }
 
   HistogramModel histogram{
@@ -204,7 +191,7 @@ initializeHistogramModels(const std::string &sampleName) {
 
 template <bool isMC> void fillHistos(const DataSet &sample, TFile &outFile) {
   std::vector<std::string> files = getFileNames(sample);
-  ROOT::RDF::RNode df = initializeRDF<isMC>(files);
+  ROOT::RDF::RNode df = initializeRDF(files);
 
   if constexpr (isMC) {
     Float_t genEventSumw = get_genEventSumwSample(files);

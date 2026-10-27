@@ -25,8 +25,10 @@
 #pragma cling add_include_path(                                                \
     "/eos/user/m/mtokarev/work_area/currentCMSSW/src")
 
-#include "PlotScripts/H4lPlots/interface/ChannelNames.hxx"
-#include "PlotScripts/H4lPlots/interface/Paths.hxx"
+#include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
+#include "PlotScripts/H4lPlots/src/H4l_Common.C"
+#include "PlotScripts/H4lPlots/src/Paths.hxx"
+#include "PlotScripts/H4lPlots/src/Style.hxx"
 
 const std::map<std::string, float> LumiPerPeriod = {
     {"2025", 109.}}; // Place-holder value
@@ -84,26 +86,6 @@ TH1D *getZX(TH1D *model, FinalStateFlavor fsFlav) {
   }
 
   return outHisto;
-}
-
-inline std::string makeFSString(FinalStateFlavor fsFlav) {
-
-  std::string fsString("");
-  switch (fsFlav) {
-  case FinalStateFlavor::E4:
-    fsString = "_4e";
-    break;
-  case FinalStateFlavor::E2Mu2:
-    fsString = "_2e2mu";
-    break;
-  case FinalStateFlavor::Mu4:
-    fsString = "_4mu";
-    break;
-  case FinalStateFlavor::L4:
-  default:
-    break;
-  }
-  return fsString;
 }
 
 template <size_t N>
@@ -241,28 +223,6 @@ THStack stackHistograms(const std::array<TH1D *, 7> &histograms,
   stack.Add(signal, "HISTO");
 
   return stack;
-}
-
-void setStyle() {
-  TH1::SetDefaultSumw2();
-  gStyle->SetErrorX(0);
-  gStyle->SetPadTopMargin(0.05);
-  gStyle->SetPadBottomMargin(0.13);
-  gStyle->SetPadLeftMargin(0.16);
-  gStyle->SetPadRightMargin(0.03);
-  gStyle->SetLabelOffset(0.008, "XYZ");
-  gStyle->SetLabelSize(0.04, "XYZ");
-  gStyle->SetAxisColor(1, "XYZ");
-  gStyle->SetStripDecimals(true);
-  gStyle->SetTickLength(0.03, "XYZ");
-  gStyle->SetNdivisions(510, "XYZ");
-  gStyle->SetPadTickX(1);
-  gStyle->SetPadTickY(1);
-  gStyle->SetTitleSize(0.05, "XYZ");
-  gStyle->SetTitleOffset(1.00, "X");
-  gStyle->SetTitleOffset(1.25, "Y");
-  gStyle->SetLabelOffset(0.008, "XYZ");
-  gStyle->SetLabelSize(0.04, "XYZ");
 }
 
 const std::unordered_map<std::string, std::vector<std::string>>
