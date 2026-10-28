@@ -21,6 +21,7 @@
 #include <TVirtualPad.h>
 #include <array>
 #include <cstddef>
+#include <cstdio>
 #include <filesystem>
 #include <map>
 #include <optional>
@@ -163,34 +164,28 @@ std::array<TH1D *, 7> getMCHistos(TFile *inFile, Float_t lumi,
         .Data();
   };
 
-  sampleBundleName = mkBundleName("signal");
-  TH1D *signal = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                                   MC_SignalH125, sampleBundleName);
+  auto mkHisto = [inFile, variable, energyBinning, fsFlav, mkBundleName](
+                     const std::string &sampleName, const auto &dataSet) {
+    return agregateHistogram(inFile, variable, energyBinning /*GeV*/, dataSet,
+                             mkBundleName(sampleName), fsFlav);
+  };
+
+  TH1D *signal = mkHisto("signal", MC_SignalH125);
   signal->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("EW");
-  TH1D *EW = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                               MC_BkgEW, sampleBundleName);
+  TH1D *EW = mkHisto("EW", MC_BkgEW);
   EW->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("qqZZ");
-  TH1D *ZZTo4l = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                                   MC_BkgQQZZ, sampleBundleName);
+  TH1D *ZZTo4l = mkHisto("qqZZ", MC_BkgQQZZ);
   ZZTo4l->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("ggZZ");
-  TH1D *ggTo = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                                 MC_BkgGGTo, sampleBundleName);
+  TH1D *ggTo = mkHisto("ggZZ", MC_BkgGGTo);
   ggTo->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("DY");
-  TH1D *DY = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                               MC_BkgDY, sampleBundleName);
+  TH1D *DY = mkHisto("DY", MC_BkgDY);
   DY->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("ttTo");
-  TH1D *TT = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                               MC_BkgTT, sampleBundleName);
+  TH1D *TT = mkHisto("ttTo", MC_BkgTT);
   TT->Scale(lumi * 1000.);
 
   TH1D *ZX = getZX(ZZTo4l, fsFlav);
@@ -243,6 +238,10 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   stack->Add(ZZTo4l, "HISTO SAME");
   // stack->Add(DY, "HISTO SAME");
   // stack->Add(TT, "HISTO SAME");
+
+  for (TH1D *histo : histograms)
+    if (histo->GetMinimum() < 0)
+      printf("Histogram %s has negative minimum\n", histo->GetName());
 
   stack->Add(signal, "HISTO SAME");
 
