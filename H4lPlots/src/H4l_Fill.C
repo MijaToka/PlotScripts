@@ -120,7 +120,7 @@ ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
                    [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
                      return Z1Flav[bestIdx] * Z2Flav[bestIdx];
                    },
-                   {"ZZCand_Z1flav", "ZZCand_Z1flav", "bestCandIdx"});
+                   {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"});
 
   return df;
 }
