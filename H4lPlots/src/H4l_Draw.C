@@ -41,8 +41,11 @@
 const std::map<std::string, float> LumiPerPeriod = {
     {"2025", 109.}}; // Place-holder value
 
-const std::map<const char *, std::string> latexVariableNames = {
+const std::map<std::string, std::string> latexVariableNames = {
     {"ZZMass", "m_{#it{4l}}"},
+    {"ZZMass_4e", "m_{#it{4e}}"},
+    {"ZZMass_2e2mu", "m_{#it{2e2#mu}}"},
+    {"ZZMass_4mu", "m_{#it{4#mu}}"},
     {"Z1Mass", "m_{Z_{1}}"},
     {"Z2Mass", "m_{Z_{2}}"},
 };
@@ -204,11 +207,14 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
       TString::Format("%s_%iGeV%s", variable, energyBinning, fsString.c_str());
 
   std::string latexVariable;
-  auto it = latexVariableNames.find(variable);
-  if (it == latexVariableNames.end())
+  auto it = latexVariableNames.find((variable + makeFSString(fsFlav)));
+  if (it == latexVariableNames.end()) {
+    printf("Could not find latex variable for %s\n",
+           (variable + makeFSString(fsFlav)).c_str());
     latexVariable = variable;
-  else
-    latexVariable = latexVariableNames.at(variable);
+  } else
+    latexVariable =
+        latexVariableNames.at((variable + makeFSString(fsFlav)).c_str());
 
   TString stackTitle = TString::Format(";%s; Events / %i GeV",
                                        latexVariable.c_str(), energyBinning);
@@ -407,7 +413,7 @@ void H4l_Draw(const std::string &period = "2025",
 
   const char *variable = "ZZMass";
   int energyBinning(4);
-  float lumi(100);
+  float lumi(109);
 
   outFile->cd(); // To associate the canvas ptrs here
 
