@@ -26,6 +26,7 @@
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -34,6 +35,7 @@
 #pragma cling add_include_path(                                                \
     "/eos/user/m/mtokarev/work_area/currentCMSSW/src")
 
+#include "PlotScripts/H4lPlots/interface/Logger.hxx"
 #include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
 #include "PlotScripts/H4lPlots/src/H4l_Common.C"
 #include "PlotScripts/H4lPlots/src/Paths.hxx"
@@ -248,7 +250,7 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
 
   for (TH1D *histo : histograms)
     if (histo->GetMinimum() < 0)
-      printf("Histogram %s has negative minimum\n", histo->GetName());
+      LOG("Histogram " << histo->GetName() << " has negative minimum\n");
 
   stack->Add(signal, "HISTO");
 
@@ -413,14 +415,29 @@ void H4l_Draw(const std::string &period = "2025",
 
   std::vector<std::string> periods;
 
-  if (dataSetPerPeriod.find(period) == dataSetPerPeriod.end())
+  if (dataSetPerPeriod.find(period) == dataSetPerPeriod.end()) {
     periods = {period};
-  else
+    LOG("Period " << period << " not found in the list, proceding with \""
+                  << period
+                  << "\" "
+                     "as explicit period\n");
+
+  } else {
     periods = dataSetPerPeriod.at(period);
+    std::stringstream ss;
+    ss << "Period used: " << period
+       << "\n\t\tWill load the following data sets:";
+    for (const auto &p : periods) {
+      ss << "\n\t\t\t" << p;
+    }
+    LOG(ss.str());
+  }
 
   setStyle();
 
   std::filesystem::path outPath = REPO_PATH / "outputs" / "H4lDraw.root";
+
+  LOG("Outputs will be written to " << outPath);
 
   TFile *outFile = TFile::Open(outPath.c_str(), "RECREATE");
   std::map<std::string, TFile *> inMCFiles, inDataFiles;
@@ -447,8 +464,9 @@ void H4l_Draw(const std::string &period = "2025",
       canvas->cd(); // To associate the histogram ptrs to the canvas
 
       for (const std::string &period : periods) {
-
+        LOG("Opening file corresponding to " << period << " data set");
         if (inMCFiles.find(period) == inMCFiles.end()) {
+          LOG("Opening file " << MC_FILL_FILES.at(period));
           inMCFiles[period] =
               TFile::Open(MC_FILL_FILES.at(period).c_str(), "READ");
           if (!inMCFiles[period] || inMCFiles[period]->IsZombie())
@@ -457,6 +475,7 @@ void H4l_Draw(const std::string &period = "2025",
         }
 
         if (inDataFiles.find(period) == inDataFiles.end()) {
+          LOG("Opening file " << DATA_FILL_FILES.at(period));
           inDataFiles[period] =
               TFile::Open(DATA_FILL_FILES.at(period).c_str(), "READ");
           if (!inDataFiles[period] || inDataFiles[period]->IsZombie())
@@ -465,9 +484,13 @@ void H4l_Draw(const std::string &period = "2025",
                                      "\n");
         }
 
+        LOG("Extracting histograms for variable="
+            << variable << " in the final state" << static_cast<Int_t>(fsFlav)
+            << " at " << energyBinning << " GeV binning");
         if (firstFile) {
           MCHistograms = getMCHistos(inMCFiles[period], lumi, variable, fsFlav,
                                      energyBinning);
+
           dataHisto = agregateHistogram(
               inDataFiles[period], variable, energyBinning, Data_dataSets,
               TString::Format("Data_histogram%s", period.c_str()).Data(),
@@ -487,17 +510,20 @@ void H4l_Draw(const std::string &period = "2025",
         }
       }
 
+      LOG("Stacking hitograms");
       THStack *stack =
           stackHistograms(MCHistograms, variable, fsFlav, energyBinning);
 
       TGraphAsymmErrors *data = getDataGraph(dataHisto, isBlinded);
 
+      LOG("Laying down the canvas");
       drawPlots(canvas, stack, MCHistograms, data, isBlinded);
 
       outFile->cd();
       canvas->Write();
     }
   }
+  LOG("Closing file " << outPath);
   outFile->Close();
   return;
 }
