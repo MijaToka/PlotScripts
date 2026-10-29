@@ -186,6 +186,18 @@ initializeHistogramModels(const std::string &sampleName) {
       }
     }
 
+  HistogramModel flavorPlot =
+      HistogramModel{.model = ROOT::RDF::TH1DModel(
+                         TString::Format("%s_%s", "FSflav", sampleName.c_str()),
+                         TString::Format(";Event flavor pdgID"),
+                         static_cast<Int_t>(FinalStateFlavor::Mu4) -
+                             static_cast<Int_t>(FinalStateFlavor::E4) + 1,
+                         static_cast<Int_t>(FinalStateFlavor::E4),
+                         static_cast<Int_t>(FinalStateFlavor::Mu4)),
+                     .variable = "FSflav"};
+
+  models.push_back(flavorPlot);
+
   return models;
 }
 

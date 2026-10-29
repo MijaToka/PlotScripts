@@ -12,6 +12,7 @@
 #include <TH1.h>
 #include <THStack.h>
 #include <TLegend.h>
+#include <TLine.h>
 #include <TMath.h>
 #include <TMathBase.h>
 #include <TPad.h>
@@ -21,9 +22,11 @@
 #include <TVirtualPad.h>
 #include <array>
 #include <cstddef>
+#include <cstdio>
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -32,6 +35,7 @@
 #pragma cling add_include_path(                                                \
     "/eos/user/m/mtokarev/work_area/currentCMSSW/src")
 
+#include "PlotScripts/H4lPlots/interface/Logger.hxx"
 #include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
 #include "PlotScripts/H4lPlots/src/H4l_Common.C"
 #include "PlotScripts/H4lPlots/src/Paths.hxx"
@@ -40,8 +44,11 @@
 const std::map<std::string, float> LumiPerPeriod = {
     {"2025", 109.}}; // Place-holder value
 
-const std::map<const char *, std::string> latexVariableNames = {
+const std::map<std::string, std::string> latexVariableNames = {
     {"ZZMass", "m_{#it{4l}}"},
+    {"ZZMass_4e", "m_{#it{4e}}"},
+    {"ZZMass_2e2mu", "m_{#it{2e2#mu}}"},
+    {"ZZMass_4mu", "m_{#it{4#mu}}"},
     {"Z1Mass", "m_{Z_{1}}"},
     {"Z2Mass", "m_{Z_{2}}"},
 };
@@ -163,34 +170,28 @@ std::array<TH1D *, 7> getMCHistos(TFile *inFile, Float_t lumi,
         .Data();
   };
 
-  sampleBundleName = mkBundleName("signal");
-  TH1D *signal = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                                   MC_SignalH125, sampleBundleName);
+  auto mkHisto = [inFile, variable, energyBinning, fsFlav, mkBundleName](
+                     const std::string &sampleName, const auto &dataSet) {
+    return agregateHistogram(inFile, variable, energyBinning /*GeV*/, dataSet,
+                             mkBundleName(sampleName), fsFlav);
+  };
+
+  TH1D *signal = mkHisto("signal", MC_SignalH125);
   signal->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("EW");
-  TH1D *EW = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                               MC_BkgEW, sampleBundleName);
+  TH1D *EW = mkHisto("EW", MC_BkgEW);
   EW->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("qqZZ");
-  TH1D *ZZTo4l = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                                   MC_BkgQQZZ, sampleBundleName);
+  TH1D *ZZTo4l = mkHisto("qqZZ", MC_BkgQQZZ);
   ZZTo4l->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("ggZZ");
-  TH1D *ggTo = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                                 MC_BkgGGTo, sampleBundleName);
+  TH1D *ggTo = mkHisto("ggZZ", MC_BkgGGTo);
   ggTo->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("DY");
-  TH1D *DY = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                               MC_BkgDY, sampleBundleName);
+  TH1D *DY = mkHisto("DY", MC_BkgDY);
   DY->Scale(lumi * 1000.);
 
-  sampleBundleName = mkBundleName("ttTo");
-  TH1D *TT = agregateHistogram(inFile, variable, energyBinning /*GeV*/,
-                               MC_BkgTT, sampleBundleName);
+  TH1D *TT = mkHisto("ttTo", MC_BkgTT);
   TT->Scale(lumi * 1000.);
 
   TH1D *ZX = getZX(ZZTo4l, fsFlav);
@@ -209,11 +210,14 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
       TString::Format("%s_%iGeV%s", variable, energyBinning, fsString.c_str());
 
   std::string latexVariable;
-  auto it = latexVariableNames.find(variable);
-  if (it == latexVariableNames.end())
+  auto it = latexVariableNames.find((variable + makeFSString(fsFlav)));
+  if (it == latexVariableNames.end()) {
+    printf("Could not find latex variable for %s\n",
+           (variable + makeFSString(fsFlav)).c_str());
     latexVariable = variable;
-  else
-    latexVariable = latexVariableNames.at(variable);
+  } else
+    latexVariable =
+        latexVariableNames.at((variable + makeFSString(fsFlav)).c_str());
 
   TString stackTitle = TString::Format(";%s; Events / %i GeV",
                                        latexVariable.c_str(), energyBinning);
@@ -222,7 +226,7 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   signal->SetLineColor(TColor::GetColor(204, 00, 00));
   signal->SetFillColor(TColor::GetColor(255, 155, 155));
 
-  EW->SetFillColor(TColor::GetColor(0, 0, 153));
+  EW->SetLineColor(TColor::GetColor(0, 0, 153));
   EW->SetFillColor(TColor::GetColor(3, 49, 185));
 
   ZZTo4l->SetLineColor(TColor::GetColor(0, 0, 153));
@@ -238,13 +242,17 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   ZX->SetFillColor(TColor::GetColor(102, 153, 102));
 
   stack->Add(ZX, "HISTO");
-  stack->Add(EW, "HISTO SAME");
-  stack->Add(ggToZZ, "HISTO SAME");
-  stack->Add(ZZTo4l, "HISTO SAME");
-  // stack->Add(DY, "HISTO SAME");
-  // stack->Add(TT, "HISTO SAME");
+  stack->Add(EW, "HISTO");
+  stack->Add(ggToZZ, "HISTO");
+  stack->Add(ZZTo4l, "HISTO");
+  // stack->Add(DY, "HISTO");
+  // stack->Add(TT, "HISTO");
 
-  stack->Add(signal, "HISTO SAME");
+  for (TH1D *histo : histograms)
+    if (histo->GetMinimum() < 0)
+      LOG("Histogram " << histo->GetName() << " has negative minimum\n");
+
+  stack->Add(signal, "HISTO");
 
   return stack;
 }
@@ -317,7 +325,13 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
       TMath::Ceil(1.1 * TMath::Max(mcStack->GetMaximum(), ymax)));
 
   padStack->cd();
+
   mcStack->Draw("HISTO");
+
+  data->SetMarkerStyle(20);
+  data->SetLineColor(kBlack);
+  data->SetMarkerSize(0.9);
+
   data->Draw("SAMEPE1");
 
   TH1 *axisHist = mcStack->GetHistogram();
@@ -386,6 +400,13 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
   ratio->SetStats(false);
   ratio->Draw("PE1");
 
+  TLine *line = new TLine(ratio->GetXaxis()->GetXmin(), 1.,
+                          ratio->GetXaxis()->GetXmax(), 1.);
+  line->SetLineColor(kBlack);
+  line->SetLineStyle(2);
+  line->SetLineWidth(2);
+  line->Draw("SAME");
+
   canvas->Update();
 }
 
@@ -394,21 +415,36 @@ void H4l_Draw(const std::string &period = "2025",
 
   std::vector<std::string> periods;
 
-  if (dataSetPerPeriod.find(period) == dataSetPerPeriod.end())
+  if (dataSetPerPeriod.find(period) == dataSetPerPeriod.end()) {
     periods = {period};
-  else
+    LOG("Period " << period << " not found in the list, proceding with \""
+                  << period
+                  << "\" "
+                     "as explicit period\n");
+
+  } else {
     periods = dataSetPerPeriod.at(period);
+    std::stringstream ss;
+    ss << "Period used: " << period
+       << "\n\t\tWill load the following data sets:";
+    for (const auto &p : periods) {
+      ss << "\n\t\t\t" << p;
+    }
+    LOG(ss.str());
+  }
 
   setStyle();
 
   std::filesystem::path outPath = REPO_PATH / "outputs" / "H4lDraw.root";
+
+  LOG("Outputs will be written to " << outPath);
 
   TFile *outFile = TFile::Open(outPath.c_str(), "RECREATE");
   std::map<std::string, TFile *> inMCFiles, inDataFiles;
 
   const char *variable = "ZZMass";
   int energyBinning(4);
-  float lumi(100);
+  float lumi(109);
 
   outFile->cd(); // To associate the canvas ptrs here
 
@@ -428,8 +464,9 @@ void H4l_Draw(const std::string &period = "2025",
       canvas->cd(); // To associate the histogram ptrs to the canvas
 
       for (const std::string &period : periods) {
-
+        LOG("Opening file corresponding to " << period << " data set");
         if (inMCFiles.find(period) == inMCFiles.end()) {
+          LOG("Opening file " << MC_FILL_FILES.at(period));
           inMCFiles[period] =
               TFile::Open(MC_FILL_FILES.at(period).c_str(), "READ");
           if (!inMCFiles[period] || inMCFiles[period]->IsZombie())
@@ -438,6 +475,7 @@ void H4l_Draw(const std::string &period = "2025",
         }
 
         if (inDataFiles.find(period) == inDataFiles.end()) {
+          LOG("Opening file " << DATA_FILL_FILES.at(period));
           inDataFiles[period] =
               TFile::Open(DATA_FILL_FILES.at(period).c_str(), "READ");
           if (!inDataFiles[period] || inDataFiles[period]->IsZombie())
@@ -446,9 +484,13 @@ void H4l_Draw(const std::string &period = "2025",
                                      "\n");
         }
 
+        LOG("Extracting histograms for variable="
+            << variable << " in the final state" << static_cast<Int_t>(fsFlav)
+            << " at " << energyBinning << " GeV binning");
         if (firstFile) {
           MCHistograms = getMCHistos(inMCFiles[period], lumi, variable, fsFlav,
                                      energyBinning);
+
           dataHisto = agregateHistogram(
               inDataFiles[period], variable, energyBinning, Data_dataSets,
               TString::Format("Data_histogram%s", period.c_str()).Data(),
@@ -468,17 +510,20 @@ void H4l_Draw(const std::string &period = "2025",
         }
       }
 
+      LOG("Stacking hitograms");
       THStack *stack =
           stackHistograms(MCHistograms, variable, fsFlav, energyBinning);
 
       TGraphAsymmErrors *data = getDataGraph(dataHisto, isBlinded);
 
+      LOG("Laying down the canvas");
       drawPlots(canvas, stack, MCHistograms, data, isBlinded);
 
       outFile->cd();
       canvas->Write();
     }
   }
+  LOG("Closing file " << outPath);
   outFile->Close();
   return;
 }
