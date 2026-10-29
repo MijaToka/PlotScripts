@@ -223,7 +223,7 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   signal->SetLineColor(TColor::GetColor(204, 00, 00));
   signal->SetFillColor(TColor::GetColor(255, 155, 155));
 
-  EW->SetFillColor(TColor::GetColor(0, 0, 153));
+  EW->SetLineColor(TColor::GetColor(0, 0, 153));
   EW->SetFillColor(TColor::GetColor(3, 49, 185));
 
   ZZTo4l->SetLineColor(TColor::GetColor(0, 0, 153));
@@ -239,17 +239,17 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   ZX->SetFillColor(TColor::GetColor(102, 153, 102));
 
   stack->Add(ZX, "HISTO");
-  stack->Add(EW, "HISTO SAME");
-  stack->Add(ggToZZ, "HISTO SAME");
-  stack->Add(ZZTo4l, "HISTO SAME");
-  // stack->Add(DY, "HISTO SAME");
-  // stack->Add(TT, "HISTO SAME");
+  stack->Add(EW, "HISTO");
+  stack->Add(ggToZZ, "HISTO");
+  stack->Add(ZZTo4l, "HISTO");
+  // stack->Add(DY, "HISTO");
+  // stack->Add(TT, "HISTO");
 
   for (TH1D *histo : histograms)
     if (histo->GetMinimum() < 0)
       printf("Histogram %s has negative minimum\n", histo->GetName());
 
-  stack->Add(signal, "HISTO SAME");
+  stack->Add(signal, "HISTO");
 
   return stack;
 }
