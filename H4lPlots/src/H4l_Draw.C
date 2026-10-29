@@ -12,6 +12,7 @@
 #include <TH1.h>
 #include <THStack.h>
 #include <TLegend.h>
+#include <TLine.h>
 #include <TMath.h>
 #include <TMathBase.h>
 #include <TPad.h>
@@ -322,7 +323,13 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
       TMath::Ceil(1.1 * TMath::Max(mcStack->GetMaximum(), ymax)));
 
   padStack->cd();
+
   mcStack->Draw("HISTO");
+
+  data->SetMarkerStyle(20);
+  data->SetLineColor(kBlack);
+  data->SetMarkerSize(0.9);
+
   data->Draw("SAMEPE1");
 
   TH1 *axisHist = mcStack->GetHistogram();
@@ -390,6 +397,13 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
   ratio->SetMaximum(1.5);
   ratio->SetStats(false);
   ratio->Draw("PE1");
+
+  TLine *line = new TLine(ratio->GetXaxis()->GetXmin(), 1.,
+                          ratio->GetXaxis()->GetXmax(), 1.);
+  line->SetLineColor(kBlack);
+  line->SetLineStyle(2);
+  line->SetLineWidth(2);
+  line->Draw("SAME");
 
   canvas->Update();
 }
