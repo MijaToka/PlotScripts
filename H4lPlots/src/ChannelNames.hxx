@@ -73,24 +73,29 @@ constexpr std::array<const char *, 22> MC_dataSetsH125p5 = concatAll(
 constexpr std::array<const char *, 22> MC_dataSetsH126 = concatAll(
     MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY, MC_BkgTT);
 
-constexpr std::array<const char *, 14> Data_EGamma2025 = {
-    "EGamma02025Cv1", "EGamma02025Cv2", "EGamma02025Dv1", "EGamma02025Ev1",
-    "EGamma02025Fv1", "EGamma02025Fv2", "EGamma02025Gv1", "EGamma12025Cv1",
-    "EGamma12025Cv2", "EGamma12025Dv1", "EGamma12025Ev1", "EGamma12025Fv1",
-    "EGamma12025Fv2", "EGamma12025Gv1"};
-
-constexpr std::array<const char *, 14> Data_Muon2025 = {
-    "Muon02025Cv1", "Muon02025Cv2", "Muon02025Dv1", "Muon02025Ev1",
-    "Muon02025Fv1", "Muon02025Fv2", "Muon02025Gv1", "Muon12025Cv1",
-    "Muon12025Cv2", "Muon12025Dv1", "Muon12025Ev1", "Muon12025Fv1",
-    "Muon12025Fv2", "Muon12025Gv1"};
-
-constexpr std::array<const char *, 7> Data_MuonEG2025 = {
-    "MuonEG2025Cv1", "MuonEG2025Cv2", "MuonEG2025Dv1", "MuonEG2025Ev1",
-    "MuonEG2025Fv1", "MuonEG2025Fv2", "MuonEG2025Gv1",
+constexpr std::array<const char *, 32> Data_EGamma2025 = {
+    "EGamma02025Bv1", "EGamma02025Cv1", "EGamma02025Cv2", "EGamma02025Dv1",
+    "EGamma02025Ev1", "EGamma12025Bv1", "EGamma02025Fv1", "EGamma02025Fv2",
+    "EGamma02025Gv1", "EGamma12025Cv1", "EGamma12025Cv2", "EGamma12025Dv1",
+    "EGamma12025Ev1", "EGamma12025Fv1", "EGamma12025Fv2", "EGamma12025Gv1",
+    "EGamma22025Bv1", "EGamma22025Cv1", "EGamma22025Cv2", "EGamma22025Dv1",
+    "EGamma22025Ev1", "EGamma22025Fv1", "EGamma22025Fv2", "EGamma22025Gv1",
+    "EGamma32025Bv1", "EGamma32025Cv1", "EGamma32025Cv2", "EGamma32025Dv1",
+    "EGamma32025Ev1", "EGamma32025Fv1", "EGamma32025Fv2", "EGamma32025Gv1",
 };
 
-const std::array<const char *, 35> Data_dataSets =
+constexpr std::array<const char *, 16> Data_Muon2025 = {
+    "Muon02025Bv1", "Muon02025Cv1", "Muon02025Cv2", "Muon02025Dv1",
+    "Muon02025Ev1", "Muon02025Fv1", "Muon02025Fv2", "Muon02025Gv1",
+    "Muon12025Bv1", "Muon12025Cv1", "Muon12025Cv2", "Muon12025Dv1",
+    "Muon12025Ev1", "Muon12025Fv1", "Muon12025Fv2", "Muon12025Gv1"};
+
+constexpr std::array<const char *, 8> Data_MuonEG2025 = {
+    "MuonEG2025Bv1", "MuonEG2025Cv1", "MuonEG2025Cv2", "MuonEG2025Dv1",
+    "MuonEG2025Ev1", "MuonEG2025Fv1", "MuonEG2025Fv2", "MuonEG2025Gv1",
+};
+
+const std::array<const char *, 56> Data_dataSets =
     concatAll(Data_EGamma2025, Data_Muon2025, Data_MuonEG2025);
 
 enum class FinalStateFlavor { L4, E4 = 14641, E2Mu2 = 20449, Mu4 = 28561 };

@@ -444,7 +444,7 @@ void H4l_Draw(const std::string &period = "2025",
 
   const char *variable = "ZZMass";
   int energyBinning(4);
-  float lumi(109);
+  float lumi(110);
 
   outFile->cd(); // To associate the canvas ptrs here
 
