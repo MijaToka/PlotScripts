@@ -9,7 +9,7 @@ const std::map<std::string, std::filesystem::path> MC_PATHS = {
     {"2025", "/eos/user/m/mtokarev/samplesHZZ/MC_2025_d25e5b4/"},
 };
 const std::map<std::string, std::filesystem::path> DATA_PATHS = {
-    {"2025", "/eos/user/m/mtokarev/samplesHZZ/Data_2025_d25e5b4/"},
+    {"2025", "/eos/user/m/mtokarev/samplesHZZ/Data_2025_10ba8e7/"},
 };
 
 const std::filesystem::path

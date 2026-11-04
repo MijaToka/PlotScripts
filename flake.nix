@@ -18,17 +18,60 @@
       perSystem =
         { pkgs, ... }:
         {
-          devShells.default = pkgs.mkShell {
-            packages = with pkgs; [
-              root
-              cmake
-              pkg-config
-            ];
-            shellHook = ''
-              printf 'CompileFlags:\n  Add: [-std=c++17, %s]\n' \
-                "$(root-config --cflags | sed 's/ /, /g')" > .clangd
-            '';
-          };
+          devShells.default =
+            let
+              jupyterBase =
+                ps: with ps; [
+                  jupyter
+                  ipykernel
+
+                  #For magma nvim
+                  pynvim
+                  jupyter-client
+                  ueberzug
+                  pillow
+                  cairosvg
+                  pnglatex
+                  plotly
+                  pyperclip
+
+                  jupyterlab-lsp
+                  python-lsp-server
+                  jupyterlab-vim
+                ];
+
+              physicsPackages =
+                ps:
+                (
+                  (jupyterBase ps)
+                  ++ (with ps; [
+                    numpy
+                    matplotlib
+                    scipy
+                    pandas
+                    astropy
+                  ])
+                );
+
+            in
+            pkgs.mkShell {
+              packages = with pkgs; [
+                root
+                cmake
+                pkg-config
+                (python3.withPackages physicsPackages)
+              ];
+              shellHook = ''
+                printf 'CompileFlags:\n  Add: [-std=c++17, %s]\n' \
+                  "$(root-config --cflags | sed 's/ /, /g')" > .clangd
+
+                mkdir -p /tmp/.jupyter
+                export JUPYTER_CONFIG_DIR=/tmp/.jupyter
+                python -m ipykernel install --user \
+                --name physics-jupyter \
+                --display-name "Nix Jupyter Environment"
+              '';
+            };
           packages.scripts = pkgs.stdenv.mkDerivation {
             src = ./.;
             pname = "H4l-scripts";
