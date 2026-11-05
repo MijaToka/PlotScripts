@@ -21,8 +21,10 @@
 #include <TStyle.h>
 #include <TVirtualPad.h>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <map>
 #include <optional>
@@ -42,7 +44,9 @@
 #include "PlotScripts/H4lPlots/src/Style.hxx"
 
 const std::map<std::string, float> LumiPerPeriod = {
-    {"2025", 109.}}; // Place-holder value
+    {"2024", 109.95},
+    {"2025", 110.63},
+}; // Place-holder value
 
 const std::map<std::string, std::string> latexVariableNames = {
     {"ZZMass", "m_{#it{4l}}"},
@@ -146,7 +150,7 @@ TH1D *agregateHistogram(
       throw std::runtime_error("Histogram not found: " + inHistName +
                                " in file " + file->GetPath());
 
-    if (!histogram) {
+    if (!histogram) { // Initialize first histogram
       histogram = (TH1D *)currHist->Clone(sampleBundleName.c_str());
     } else {
       histogram->Add(currHist);
@@ -170,28 +174,28 @@ std::array<TH1D *, 7> getMCHistos(TFile *inFile, Float_t lumi,
         .Data();
   };
 
-  auto mkHisto = [inFile, variable, energyBinning, fsFlav, mkBundleName](
-                     const std::string &sampleName, const auto &dataSet) {
+  auto mkHistoSum = [inFile, variable, energyBinning, fsFlav, mkBundleName](
+                        const std::string &sampleName, const auto &dataSet) {
     return agregateHistogram(inFile, variable, energyBinning /*GeV*/, dataSet,
                              mkBundleName(sampleName), fsFlav);
   };
 
-  TH1D *signal = mkHisto("signal", MC_SignalH125);
+  TH1D *signal = mkHistoSum("signal", MC_SignalH125);
   signal->Scale(lumi * 1000.);
 
-  TH1D *EW = mkHisto("EW", MC_BkgEW);
+  TH1D *EW = mkHistoSum("EW", MC_BkgEW);
   EW->Scale(lumi * 1000.);
 
-  TH1D *ZZTo4l = mkHisto("qqZZ", MC_BkgQQZZ);
+  TH1D *ZZTo4l = mkHistoSum("qqZZ", MC_BkgQQZZ);
   ZZTo4l->Scale(lumi * 1000.);
 
-  TH1D *ggTo = mkHisto("ggZZ", MC_BkgGGTo);
+  TH1D *ggTo = mkHistoSum("ggZZ", MC_BkgGGTo);
   ggTo->Scale(lumi * 1000.);
 
-  TH1D *DY = mkHisto("DY", MC_BkgDY);
+  TH1D *DY = mkHistoSum("DY", MC_BkgDY);
   DY->Scale(lumi * 1000.);
 
-  TH1D *TT = mkHisto("ttTo", MC_BkgTT);
+  TH1D *TT = mkHistoSum("ttTo", MC_BkgTT);
   TT->Scale(lumi * 1000.);
 
   TH1D *ZX = getZX(ZZTo4l, fsFlav);
@@ -241,7 +245,9 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   ZX->SetLineColor(TColor::GetColor(0, 51, 0));
   ZX->SetFillColor(TColor::GetColor(102, 153, 102));
 
-  stack->Add(ZX, "HISTO");
+  if (strcmp(variable, "ZZMass") == 0)
+    stack->Add(ZX, "HISTO");
+
   stack->Add(EW, "HISTO");
   stack->Add(ggToZZ, "HISTO");
   stack->Add(ZZTo4l, "HISTO");
@@ -305,7 +311,7 @@ TH1D *TGraphAsymmErrorsToTH1(TGraphAsymmErrors *graph, TH1D *model,
 
 void drawPlots(TCanvas *canvas, THStack *mcStack,
                const std::array<TH1D *, 7> &mcHistos, TGraphAsymmErrors *data,
-               const bool blinded = true) {
+               const char *variable, const bool blinded = true) {
 
   canvas->SetTicks();
 
@@ -341,7 +347,7 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
 
   mcStack->GetXaxis()->SetLabelSize(0);
 
-  if (blinded) {
+  if (blinded && strcmp(variable, "ZZMass") == 0) {
     Float_t epsilon(0.1);
     for (blindInterval interval : blindIntervals) {
       TBox *bblind =
@@ -410,6 +416,38 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
   canvas->Update();
 }
 
+void assertPeriod(const std::string &period) {
+  assert(LumiPerPeriod.find(period) != LumiPerPeriod.end() &&
+         "Luminosity not configured for current period");
+  assert(MC_FILL_FILES.find(period) != MC_FILL_FILES.end() &&
+         "H4lFill_MC file path not configured for current period");
+  assert(DATA_FILL_FILES.find(period) != DATA_FILL_FILES.end() &&
+         "H4lFill_Data fill path not configured for current period");
+}
+
+template <bool isMC> constexpr auto selectFillFiles() {
+  if constexpr (isMC) {
+    return MC_FILL_FILES;
+  } else {
+    return DATA_FILL_FILES;
+  }
+}
+
+template <bool isMC>
+void openFillFile(const std::string &period,
+                  std::map<std::string, TFile *> &inFiles) {
+
+  auto FILL_FILES = selectFillFiles<isMC>();
+
+  if (inFiles.find(period) == inFiles.end()) {
+    LOG("Opening file " << FILL_FILES.at(period));
+    inFiles[period] = TFile::Open(FILL_FILES.at(period).c_str(), "READ");
+    if (!inFiles[period] || inFiles[period]->IsZombie())
+      throw std::runtime_error("Could not read file " +
+                               FILL_FILES.at(period).string() + "\n");
+  }
+}
+
 void H4l_Draw(const std::string &period = "2025",
               const bool &isBlinded = true) {
 
@@ -442,87 +480,76 @@ void H4l_Draw(const std::string &period = "2025",
   TFile *outFile = TFile::Open(outPath.c_str(), "RECREATE");
   std::map<std::string, TFile *> inMCFiles, inDataFiles;
 
-  const char *variable = "ZZMass";
-  int energyBinning(4);
-  float lumi(110);
+  // const char *variable = "ZZMass";
+  // int energyBinning(4);
 
   outFile->cd(); // To associate the canvas ptrs here
 
-  for (FinalStateFlavor fsFlav : fsFlavors) {
-    for (const auto &energyBinning : {2, 4, 10}) {
-      bool firstFile(true);
-      std::array<TH1D *, 7> MCHistograms;
-      TH1D *dataHisto;
+  for (const char *variable : {"ZZMass", "Z1Mass", "Z2Mass"})
+    for (FinalStateFlavor fsFlav : fsFlavors)
+      for (const auto &energyBinning : {2, 4, 10}) {
+        std::array<TH1D *, 7> MCHistograms;
+        TH1D *dataHisto;
 
-      TString canvasName = TString::Format(
-          "%s_%iGeV%s", variable, energyBinning, makeFSString(fsFlav).c_str());
-      Int_t canvasXSize(1200), canvasYSize(900);
+        TString canvasName =
+            TString::Format("%s_%iGeV%s", variable, energyBinning,
+                            makeFSString(fsFlav).c_str());
+        Int_t canvasXSize(1200), canvasYSize(900);
 
-      TCanvas *canvas =
-          new TCanvas(canvasName, canvasName, canvasXSize, canvasYSize);
+        TCanvas *canvas =
+            new TCanvas(canvasName, canvasName, canvasXSize, canvasYSize);
 
-      canvas->cd(); // To associate the histogram ptrs to the canvas
+        canvas->cd(); // To associate the histogram ptrs to the canvas
 
-      for (const std::string &period : periods) {
-        LOG("Opening file corresponding to " << period << " data set");
-        if (inMCFiles.find(period) == inMCFiles.end()) {
-          LOG("Opening file " << MC_FILL_FILES.at(period));
-          inMCFiles[period] =
-              TFile::Open(MC_FILL_FILES.at(period).c_str(), "READ");
-          if (!inMCFiles[period] || inMCFiles[period]->IsZombie())
-            throw std::runtime_error("Could not read file " +
-                                     MC_FILL_FILES.at(period).string() + "\n");
+        bool firstPeriod(true);
+        for (const std::string &period : periods) {
+          assertPeriod(period);
+
+          float lumi = LumiPerPeriod.at(period);
+
+          LOG("Opening files corresponding to " << period << " data set");
+          openFillFile</*isMC=*/true>(period, inMCFiles);
+          openFillFile</*isMC=*/false>(period, inDataFiles);
+
+          LOG("Extracting histograms for variable="
+              << variable << " in the final state" << static_cast<Int_t>(fsFlav)
+              << " at " << energyBinning << " GeV binning");
+          if (firstPeriod) {
+            MCHistograms = getMCHistos(inMCFiles[period], lumi, variable,
+                                       fsFlav, energyBinning);
+
+            dataHisto = agregateHistogram(
+                inDataFiles[period], variable, energyBinning, Data_dataSets2025,
+                TString::Format("Data_histogram%s", period.c_str()).Data(),
+                fsFlav);
+            firstPeriod = !firstPeriod;
+          } else {
+            const auto currMCHistos = getMCHistos(
+                inMCFiles[period], lumi, variable, fsFlav, energyBinning);
+            for (MCHistoIdx idx :
+                 {signalIdx, EWIdx, ZZTo4lIdx, ggToIdx, DYIdx, TTIdx, ZXIdx})
+              MCHistograms[idx]->Add(currMCHistos[idx]);
+
+            dataHisto->Add(agregateHistogram(
+                inDataFiles[period], variable, energyBinning, Data_dataSets2025,
+                TString::Format("Data_histogram%s", period.c_str()).Data(),
+                fsFlav));
+          }
         }
 
-        if (inDataFiles.find(period) == inDataFiles.end()) {
-          LOG("Opening file " << DATA_FILL_FILES.at(period));
-          inDataFiles[period] =
-              TFile::Open(DATA_FILL_FILES.at(period).c_str(), "READ");
-          if (!inDataFiles[period] || inDataFiles[period]->IsZombie())
-            throw std::runtime_error("Could not read file " +
-                                     DATA_FILL_FILES.at(period).string() +
-                                     "\n");
-        }
+        LOG("Stacking hitograms");
+        THStack *stack =
+            stackHistograms(MCHistograms, variable, fsFlav, energyBinning);
 
-        LOG("Extracting histograms for variable="
-            << variable << " in the final state" << static_cast<Int_t>(fsFlav)
-            << " at " << energyBinning << " GeV binning");
-        if (firstFile) {
-          MCHistograms = getMCHistos(inMCFiles[period], lumi, variable, fsFlav,
-                                     energyBinning);
+        TGraphAsymmErrors *data = getDataGraph(dataHisto, isBlinded);
 
-          dataHisto = agregateHistogram(
-              inDataFiles[period], variable, energyBinning, Data_dataSets,
-              TString::Format("Data_histogram%s", period.c_str()).Data(),
-              fsFlav);
-          firstFile = !firstFile;
-        } else {
-          const auto currMCHistos = getMCHistos(
-              inMCFiles[period], lumi, variable, fsFlav, energyBinning);
-          for (MCHistoIdx idx :
-               {signalIdx, EWIdx, ZZTo4lIdx, ggToIdx, DYIdx, TTIdx, ZXIdx})
-            MCHistograms[idx]->Add(currMCHistos[idx]);
+        LOG("Laying down the canvas");
+        drawPlots(canvas, stack, MCHistograms, data, variable, isBlinded);
 
-          dataHisto->Add(agregateHistogram(
-              inDataFiles[period], variable, energyBinning, Data_dataSets,
-              TString::Format("Data_histogram%s", period.c_str()).Data(),
-              fsFlav));
-        }
+        outFile->cd();
+        canvas->Write();
       }
 
-      LOG("Stacking hitograms");
-      THStack *stack =
-          stackHistograms(MCHistograms, variable, fsFlav, energyBinning);
-
-      TGraphAsymmErrors *data = getDataGraph(dataHisto, isBlinded);
-
-      LOG("Laying down the canvas");
-      drawPlots(canvas, stack, MCHistograms, data, isBlinded);
-
-      outFile->cd();
-      canvas->Write();
-    }
-  }
   LOG("Closing file " << outPath);
   outFile->Close();
   return;

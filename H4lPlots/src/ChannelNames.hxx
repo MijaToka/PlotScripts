@@ -95,7 +95,7 @@ constexpr std::array<const char *, 8> Data_MuonEG2025 = {
     "MuonEG2025Ev1", "MuonEG2025Fv1", "MuonEG2025Fv2", "MuonEG2025Gv1",
 };
 
-const std::array<const char *, 56> Data_dataSets =
+const std::array<const char *, 56> Data_dataSets2025 =
     concatAll(Data_EGamma2025, Data_Muon2025, Data_MuonEG2025);
 
 enum class FinalStateFlavor { L4, E4 = 14641, E2Mu2 = 20449, Mu4 = 28561 };

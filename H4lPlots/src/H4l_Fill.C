@@ -236,7 +236,7 @@ template <bool isMC> constexpr auto selectDataSet() {
   if constexpr (isMC)
     return MC_dataSets;
   else
-    return Data_dataSets;
+    return Data_dataSets2025;
 }
 
 template <bool isMC> void run(const std::string &period = "2025") {
