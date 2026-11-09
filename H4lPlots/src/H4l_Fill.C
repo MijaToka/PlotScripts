@@ -7,23 +7,23 @@
 #include <TFile.h>
 #include <TH1.h>
 #include <TH1F.h>
+#include <TMath.h>
 #include <TString.h>
 #include <TTree.h>
 #include <TTreeReader.h>
 #include <TTreeReaderValue.h>
-#include <cstdio>
 #include <filesystem>
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
 #pragma cling add_include_path(                                                \
     "/eos/user/m/mtokarev/work_area/currentCMSSW/src")
 
+#include "PlotScripts/H4lPlots/interface/Logger.hxx"
 #include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
-#include "PlotScripts/H4lPlots/src/H4l_Common.C"
+#include "PlotScripts/H4lPlots/src/HistogramModel.hxx"
 #include "PlotScripts/H4lPlots/src/Paths.hxx"
 
 Double_t get_genEventSumw(const std::string &file_path) {
@@ -58,7 +58,7 @@ std::vector<std::string> getFileNames(const DataSet &sample) {
   for (auto const &file : std::filesystem::directory_iterator{sample.path})
     if (file.path().extension() == ".root" && file.is_regular_file()) {
       files.push_back(file.path().string());
-      LOG("[getFileNames]\tAdding file " << file.path() << "\n", 3);
+      LOG("[getFileNames]\tAdding file " << file.path(), 1);
     }
   return files;
 }
@@ -68,9 +68,9 @@ Float_t get_genEventSumwSample(const std::vector<std::string> &files) {
   for (auto const &file : files) {
     Float_t curr;
     genEventSumw += get_genEventSumw(file);
-    LOG("[get_genEventSumwSample]\tFile "
-            << file << "'s eventSumw=" << genEventSumw << "\n",
-        3);
+    LOG("[get_genEventSumwSample]\tFile " << file
+                                          << "'s eventSumw=" << genEventSumw,
+        2);
   }
   return genEventSumw;
 }
@@ -102,18 +102,21 @@ ROOT::RDF::RNode calculateEventWeight(Float_t genEventSumw,
   return df;
 }
 
+#define MK_FLATTEN_VARIABLE(columnTag, containerClass)                         \
+  "ZZ" columnTag,                                                              \
+      [](const containerClass &ZZCand, Short_t bestIdx) {                      \
+        return ZZCand[bestIdx];                                                \
+      },                                                                       \
+      {"ZZCand_" columnTag, "bestCandIdx"}
+
 ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
-  df = df.Define("ZZMass",
-                 [](ROOT::RVecF ZZMass, Short_t bestIdx) -> Float_t {
-                   return ZZMass[bestIdx];
-                 },
-                 {"ZZCand_mass", "bestCandIdx"})
-           .Define("Z1Mass",
+  df = df.Define(MK_FLATTEN_VARIABLE("mass", ROOT::RVecF))
+           .Define("Z1mass",
                    [](ROOT::RVecF Z1Mass, Short_t bestIdx) {
                      return Z1Mass[bestIdx];
                    },
                    {"ZZCand_Z1mass", "bestCandIdx"})
-           .Define("Z2Mass",
+           .Define("Z2mass",
                    [](ROOT::RVecF Z2Mass, Short_t bestIdx) {
                      return Z2Mass[bestIdx];
                    },
@@ -122,81 +125,121 @@ ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
                    [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
                      return Z1Flav[bestIdx] * Z2Flav[bestIdx];
                    },
-                   {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"});
+                   {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"})
+           .Define(MK_FLATTEN_VARIABLE("pt", ROOT::RVecF))
+           .Define(MK_FLATTEN_VARIABLE("eta", ROOT::RVecF))
+           .Define(MK_FLATTEN_VARIABLE("phi", ROOT::RVecF))
+           .Define(MK_FLATTEN_VARIABLE("costheta1", ROOT::RVecF))
+           .Define(MK_FLATTEN_VARIABLE("costheta2", ROOT::RVecF))
+           .Define(MK_FLATTEN_VARIABLE("costhetastar", ROOT::RVecF))
+           .Define(MK_FLATTEN_VARIABLE("Phi", ROOT::RVecF))
+           .Define(MK_FLATTEN_VARIABLE("Phi1", ROOT::RVecF));
 
   return df;
 }
 
-struct HistogramBinning {
-  int GeVVal, nBins;
-  float xlow, xhigh;
+const std::vector<HistogramBinning> massBinGranularities = {
+    HistogramBinning{.nBins = 65, .xlow = 70., .xhigh = 200.},
+    HistogramBinning{.nBins = 233, .xlow = 70., .xhigh = 1002.},
+    HistogramBinning{.nBins = 93, .xlow = 70., .xhigh = 1000.},
 };
-
-const HistogramBinning binGranularities[] = {
-    HistogramBinning{.GeVVal = 2, .nBins = 65, .xlow = 70., .xhigh = 200.},
-    HistogramBinning{.GeVVal = 4, .nBins = 233, .xlow = 70., .xhigh = 1002.},
-    HistogramBinning{.GeVVal = 10, .nBins = 93, .xlow = 70., .xhigh = 1000.}};
+const std::vector<HistogramBinning> ptBinGranularities = {
+    HistogramBinning{.nBins = 100, .xlow = 0., .xhigh = 500},
+};
+const std::vector<HistogramBinning> cosBinGranularities = {
+    HistogramBinning{.nBins = 30, .xlow = -1, .xhigh = 1},
+};
+const std::vector<HistogramBinning> etaBinGranularities = {
+    HistogramBinning{.nBins = 100, .xlow = -4, .xhigh = 4},
+};
+const std::vector<HistogramBinning> angleBinGranularities = {
+    HistogramBinning{.nBins = 100, .xlow = -TMath::Pi(), .xhigh = TMath::Pi()},
+};
 
 const std::map<std::string, std::string> labelPerVariable = {
-    {"ZZMass", "m_{#it{4l}}"}, {"Z1Mass", "m_{Z_1}"}, {"Z2Mass", "m_{Z_2}"}};
-
-struct HistogramModel {
-  ROOT::RDF::TH1DModel model;
-  std::string variable;
-  std::optional<TString> filter;
+    {"ZZmass", "m_{#it{4l}}"},
+    {"Z1mass", "m_{Z_1}"},
+    {"Z2mass", "m_{Z_2}"},
+    {"ZZpt", "p_{T}^{#it{4l}}"},
+    {"ZZeta", "#eta_{#it{4l}}"},
+    {"ZZphi", "#phi_{#it{4l}}"},
+    {"ZZcostheta1", "cos#theta_{1}"},
+    {"ZZcostheta2", "cos#theta_{2}"},
+    {"ZZcosthetastar", "cos#theta^{*}"},
+    {"ZZPhi", "#Phi_{#it{4l}}"},
+    {"ZZPhi1", "#Phi1_{#it{4l}}"},
 };
 
-HistogramModel
-makeModel(const std::string &variable, const std::string &sampleName,
-          const std::string &xlabel, const HistogramBinning &binning,
-          const std::optional<FinalStateFlavor> fsFlav = std::nullopt) {
-  TString filterString;
+enum unitIdx { GeV, GeV_c, angle, cosAngle, eta };
+const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
+    {GeV, massBinGranularities},    {GeV_c, ptBinGranularities},
+    {angle, angleBinGranularities}, {cosAngle, cosBinGranularities},
+    {eta, etaBinGranularities},
+};
+const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
+    {GeV, {"ZZmass", "Z1mass", "Z2mass"}},
+    {GeV_c, {"ZZpt"}},
+    {angle, {"ZZphi", "ZZPhi", "ZZPhi1"}},
+    {cosAngle, {"ZZcostheta1", "ZZcostheta2", "ZZcosthetastar"}},
+    {eta, {"ZZeta"}},
+};
 
-  TString modelName = TString::Format("%s_%iGeV_%s", variable.c_str(),
-                                      binning.GeVVal, sampleName.c_str());
-
-  if (fsFlav.has_value()) {
-    modelName += makeFSString(fsFlav.value());
+std::string getUnitName(unitIdx unit) {
+  switch (unit) {
+  case GeV:
+    return "GeV";
+  case GeV_c:
+    return "GeV/c";
+  case angle:
+  case cosAngle:
+  case eta:
+  default:
+    return "";
   }
-
-  HistogramModel histogram{
-      .model = ROOT::RDF::TH1DModel(
-          modelName,
-          TString::Format("%s;%s;Events / %i GeV", modelName.Data(),
-                          xlabel.c_str(), binning.GeVVal),
-          binning.nBins, binning.xlow, binning.xhigh),
-      .variable = variable,
-  };
-
-  if (fsFlav.has_value() && fsFlav.value() != FinalStateFlavor::L4)
-    histogram.filter =
-        TString::Format("FSflav==static_cast<Int_t>(%i)", fsFlav.value());
-
-  return histogram;
 }
 
 std::vector<HistogramModel>
 initializeHistogramModels(const std::string &sampleName) {
   std::vector<HistogramModel> models;
 
-  for (const auto &[variable, xlabel] : labelPerVariable)
-    for (HistogramBinning binning : binGranularities) {
-      for (FinalStateFlavor fsFlav : fsFlavors) {
-        auto currModel =
-            makeModel(variable, sampleName, xlabel, binning, fsFlav);
-        models.push_back(currModel);
+  for (const auto &[unit, variables] : variablesPerUnit) {
+    std::string unitName = getUnitName(unit);
+    for (const auto &variable : variables) {
+      std::string xlabel = labelPerVariable.at(variable);
+      for (HistogramBinning binning : binGranularites.at(unit)) {
+        for (FinalStateFlavor fsFlav : fsFlavors) {
+          auto currModel = HistogramModel(variable, sampleName, xlabel, binning,
+                                          fsFlav, unitName);
+          LOG("[initializeHistogramModels]\t Created model: "
+                  << currModel.getModel().fTitle << " for the variable "
+                  << currModel.getVariable(),
+              3);
+          models.push_back(currModel);
+        }
       }
     }
+  }
 
-  HistogramModel flavorPlot =
-      HistogramModel{.model = ROOT::RDF::TH1DModel(
-                         TString::Format("%s_%s", "FSflav", sampleName.c_str()),
-                         TString::Format(";Event flavor pdgID"),
-                         static_cast<Int_t>(FinalStateFlavor::Mu4) -
-                             static_cast<Int_t>(FinalStateFlavor::E4) + 1,
-                         static_cast<Int_t>(FinalStateFlavor::E4),
-                         static_cast<Int_t>(FinalStateFlavor::Mu4)),
-                     .variable = "FSflav"};
+  HistogramModel flavorPlot = HistogramModel(
+      /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",
+      /*binning=*/
+      HistogramBinning{.nBins = static_cast<Int_t>(FinalStateFlavor::Mu4) -
+                                static_cast<Int_t>(FinalStateFlavor::E4) + 1,
+                       .xlow = static_cast<Int_t>(FinalStateFlavor::E4),
+                       .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
+      FinalStateFlavor::L4, /*unitName=*/"");
+
+  //  HistogramModel flavorPlot =
+  //      HistogramModel{/*.model=*/
+  //                     ROOT::RDF::TH1DModel(
+  //                         TString::Format("%s_%s", "FSflav",
+  //                         sampleName.c_str()), TString::Format(";Event flavor
+  //                         pdgID"), static_cast<Int_t>(FinalStateFlavor::Mu4)
+  //                         -
+  //                             static_cast<Int_t>(FinalStateFlavor::E4) + 1,
+  //                         static_cast<Int_t>(FinalStateFlavor::E4),
+  //                         static_cast<Int_t>(FinalStateFlavor::Mu4)),
+  //                     /*.variable=*/"FSflav"};
 
   models.push_back(flavorPlot);
 
@@ -211,25 +254,37 @@ template <bool isMC> void fillHistos(const DataSet &sample, TFile &outFile) {
     Float_t genEventSumw = get_genEventSumwSample(files);
     df = calculateEventWeight(genEventSumw, df);
   }
-
+  LOG("[fillHistos]\tInitializing variables", 1);
   df = initializeVariables(df);
 
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms;
 
+  LOG("[fillHistos]\tCreating TH1D models", 1);
   std::vector<HistogramModel> histoModels =
       initializeHistogramModels(sample.name);
 
   for (auto model : histoModels) {
     auto selection = df;
-    if (model.filter.has_value())
-      selection = selection.Filter(model.filter.value().Data());
-
-    auto hist = selection.Histo1D(model.model, model.variable, "eventWeight");
+    LOG("[fillHistos]\tChecking if model " << model.getModel().fTitle
+                                           << " has filter",
+        2);
+    if (model.hasFilter()) {
+      LOG("[fillHistos]\tApplying filter: " << model.getFilter(), 2);
+      selection = selection.Filter(model.getFilter());
+    }
+    LOG("[fillHistos]\tCreating histogram "
+            << model.getModel().fName << " with title "
+            << model.getModel().fTitle << " for the variable "
+            << model.getVariable(),
+        2);
+    auto hist =
+        selection.Histo1D(model.getModel(), model.getVariable(), "eventWeight");
     histograms.push_back(hist);
   }
 
   outFile.cd();
 
+  LOG("[fillHistos]\tWriting histograms to output file", 1);
   for (auto &hist : histograms)
     hist->Write();
 }
@@ -247,22 +302,21 @@ template <bool isMC> void run(const std::string &period = "2025") {
                                     period.c_str());
   auto dataSets = selectDataSet<isMC>();
   auto INPUT_PATH = isMC ? MC_PATHS : DATA_PATHS;
+
   auto outFile = std::unique_ptr<TFile>(TFile::Open(outName, "RECREATE"));
 
-  LOG("[run]\tOutput will be saved to " << outName << "\n", 0);
+  LOG("[run]\tOutput will be saved to " << outName, 0);
 
   for (std::string channel : dataSets) {
     DataSet sample =
         DataSet{.name = channel,
                 .path = std::filesystem::path(INPUT_PATH[period] / channel)};
 
-    LOG("[run]\tFilling histograms from ROOT file(s) in " << sample.path
-                                                          << "\n",
-        1);
+    LOG("[run]\tFilling histograms from ROOT file(s) in " << sample.path, 0);
 
     fillHistos<isMC>(sample, *outFile);
   }
-  LOG("[run]\tClosing file " << outName << "\n", 0);
+  LOG("[run]\tClosing file " << outName, 0);
   outFile->Close();
 }
 
