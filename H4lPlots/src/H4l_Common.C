@@ -1,3 +1,5 @@
+#ifndef H4L_COMMON
+#define H4L_COMMON
 
 #include <string>
 
@@ -24,3 +26,5 @@ inline std::string makeFSString(FinalStateFlavor fsFlav) {
   }
   return fsString;
 }
+
+#endif
