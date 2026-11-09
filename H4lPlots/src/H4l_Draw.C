@@ -256,7 +256,9 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
 
   for (TH1D *histo : histograms)
     if (histo->GetMinimum() < 0)
-      LOG("Histogram " << histo->GetName() << " has negative minimum\n");
+      LOGERR("[stackHistograms][WARNING]\tHistogram "
+                 << histo->GetName() << " has negative minimum\n",
+             1);
 
   stack->Add(signal, "HISTO");
 
@@ -440,7 +442,7 @@ void openFillFile(const std::string &period,
   auto FILL_FILES = selectFillFiles<isMC>();
 
   if (inFiles.find(period) == inFiles.end()) {
-    LOG("Opening file " << FILL_FILES.at(period));
+    LOG("[openFillFile]\tOpening file " << FILL_FILES.at(period), 2);
     inFiles[period] = TFile::Open(FILL_FILES.at(period).c_str(), "READ");
     if (!inFiles[period] || inFiles[period]->IsZombie())
       throw std::runtime_error("Could not read file " +
@@ -455,10 +457,11 @@ void H4l_Draw(const std::string &period = "2025",
 
   if (dataSetPerPeriod.find(period) == dataSetPerPeriod.end()) {
     periods = {period};
-    LOG("Period " << period << " not found in the list, proceding with \""
-                  << period
-                  << "\" "
-                     "as explicit period\n");
+    LOG("[H4l_Draw]\tPeriod "
+            << period << " not found in the list, proceding with \"" << period
+            << "\" "
+               "as explicit period\n",
+        0);
 
   } else {
     periods = dataSetPerPeriod.at(period);
@@ -468,14 +471,14 @@ void H4l_Draw(const std::string &period = "2025",
     for (const auto &p : periods) {
       ss << "\n\t\t\t" << p;
     }
-    LOG(ss.str());
+    LOG(ss.str(), 0);
   }
 
   setStyle();
 
   std::filesystem::path outPath = REPO_PATH / "outputs" / "H4lDraw.root";
 
-  LOG("Outputs will be written to " << outPath);
+  LOG("[H4l_Draw]\tOutputs will be written to " << outPath, 1);
 
   TFile *outFile = TFile::Open(outPath.c_str(), "RECREATE");
   std::map<std::string, TFile *> inMCFiles, inDataFiles;
@@ -507,13 +510,17 @@ void H4l_Draw(const std::string &period = "2025",
 
           float lumi = LumiPerPeriod.at(period);
 
-          LOG("Opening files corresponding to " << period << " data set");
+          LOG("[H4l_Draw]\tOpening files corresponding to " << period
+                                                            << " data set",
+              0);
           openFillFile</*isMC=*/true>(period, inMCFiles);
           openFillFile</*isMC=*/false>(period, inDataFiles);
 
-          LOG("Extracting histograms for variable="
-              << variable << " in the final state" << static_cast<Int_t>(fsFlav)
-              << " at " << energyBinning << " GeV binning");
+          LOG("[H4l_Draw]\tExtracting histograms for variable="
+                  << variable << " in the final state"
+                  << static_cast<Int_t>(fsFlav) << " at " << energyBinning
+                  << " GeV binning",
+              1);
           if (firstPeriod) {
             MCHistograms = getMCHistos(inMCFiles[period], lumi, variable,
                                        fsFlav, energyBinning);
@@ -537,20 +544,20 @@ void H4l_Draw(const std::string &period = "2025",
           }
         }
 
-        LOG("Stacking hitograms");
+        LOG("[H4l_Draw]\tStacking hitograms", 0);
         THStack *stack =
             stackHistograms(MCHistograms, variable, fsFlav, energyBinning);
 
         TGraphAsymmErrors *data = getDataGraph(dataHisto, isBlinded);
 
-        LOG("Laying down the canvas");
+        LOG("[H4l_Draw]\tLaying down the canvas", 0);
         drawPlots(canvas, stack, MCHistograms, data, variable, isBlinded);
 
         outFile->cd();
         canvas->Write();
       }
 
-  LOG("Closing file " << outPath);
+  LOG("[H4l_Draw]\tClosing file " << outPath, 0);
   outFile->Close();
   return;
 }

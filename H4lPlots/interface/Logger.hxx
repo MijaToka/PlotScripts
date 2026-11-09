@@ -4,19 +4,19 @@
 #include <iostream>
 
 namespace logging {
-inline bool verbose = false;
+inline char verbose = 2;
 }
 
-#define LOG(msg)                                                               \
+#define LOG(msg, level)                                                        \
   do {                                                                         \
-    if (logging::verbose)                                                      \
-      std::cout << "[INFO]\t" << msg << std::endl;                             \
+    if (logging::verbose >= level)                                             \
+      std::cout << "[INFO]" << msg << std::endl;                               \
   } while (0)
 
-#define LOGERR(msg)                                                            \
+#define LOGERR(msg, level)                                                     \
   do {                                                                         \
-    if (logging::verbose)                                                      \
-      std::cerr << "[ERROR]\t" << msg << std::endl;                            \
+    if (logging::verbose >= level)                                             \
+      std::cerr << "[ERROR]" << msg << std::endl;                              \
   } while (0)
 
 #endif

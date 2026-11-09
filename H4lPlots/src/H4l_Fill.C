@@ -58,7 +58,7 @@ std::vector<std::string> getFileNames(const DataSet &sample) {
   for (auto const &file : std::filesystem::directory_iterator{sample.path})
     if (file.path().extension() == ".root" && file.is_regular_file()) {
       files.push_back(file.path().string());
-      printf("\tAdding file %s\n", file.path().c_str());
+      LOG("[getFileNames]\tAdding file " << file.path() << "\n", 3);
     }
   return files;
 }
@@ -68,7 +68,9 @@ Float_t get_genEventSumwSample(const std::vector<std::string> &files) {
   for (auto const &file : files) {
     Float_t curr;
     genEventSumw += get_genEventSumw(file);
-    printf("\tFile %s's eventSumw=%f\n", file.c_str(), genEventSumw);
+    LOG("[get_genEventSumwSample]\tFile "
+            << file << "'s eventSumw=" << genEventSumw << "\n",
+        3);
   }
   return genEventSumw;
 }
@@ -247,19 +249,20 @@ template <bool isMC> void run(const std::string &period = "2025") {
   auto INPUT_PATH = isMC ? MC_PATHS : DATA_PATHS;
   auto outFile = std::unique_ptr<TFile>(TFile::Open(outName, "RECREATE"));
 
-  printf("Output will be saved to %s\n", outName.Data());
+  LOG("[run]\tOutput will be saved to " << outName << "\n", 0);
 
   for (std::string channel : dataSets) {
     DataSet sample =
         DataSet{.name = channel,
                 .path = std::filesystem::path(INPUT_PATH[period] / channel)};
 
-    printf("Filling histograms from ROOT file(s) in %s \n",
-           sample.path.c_str());
+    LOG("[run]\tFilling histograms from ROOT file(s) in " << sample.path
+                                                          << "\n",
+        1);
 
     fillHistos<isMC>(sample, *outFile);
   }
-  printf("Closing file %s\n", outName.Data());
+  LOG("[run]\tClosing file " << outName << "\n", 0);
   outFile->Close();
 }
 
@@ -269,6 +272,7 @@ void runData(const std::string &period = "2025") { run<false>(period); }
 
 void H4l_Fill(const std::vector<std::string> &years = {"2025"},
               int nEvents = -1) {
+  logging::verbose = 1;
   for (std::string year : years) {
     runMC(year);
     runData(year);
