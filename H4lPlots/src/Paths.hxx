@@ -6,9 +6,13 @@
 #include <string>
 
 const std::map<std::string, std::filesystem::path> MC_PATHS = {
+    {"2024", "/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/HIG-26-STXS/"
+             "260623/2024/"},
     {"2025", "/eos/user/m/mtokarev/samplesHZZ/MC_2025_d25e5b4/"},
 };
 const std::map<std::string, std::filesystem::path> DATA_PATHS = {
+    {"2024", "/eos/cms/store/group/phys_higgs/cmshzz4l/cjlst/HIG-26-STXS/"
+             "260623/Data2024/"},
     {"2025", "/eos/user/m/mtokarev/samplesHZZ/Data_2025_10ba8e7/"},
 };
 
@@ -16,7 +20,9 @@ const std::filesystem::path
     REPO_PATH("/eos/user/m/mtokarev/work_area/currentCMSSW/src/");
 
 const std::map<std::string, std::filesystem::path> MC_FILL_FILES = {
-    {"2025", REPO_PATH / "outputs" / "H4lFill_MC2025.root"}};
+    {"2024", REPO_PATH / "outputs" / "H4lFill_MC2024.root"},
+    {"2025", REPO_PATH / "outputs" / "H4lFill_MC2025.root"},
+};
 
 const std::map<std::string, std::filesystem::path> DATA_FILL_FILES = {
     {"2025", REPO_PATH / "outputs" / "H4lFill_Data2025.root"}};
