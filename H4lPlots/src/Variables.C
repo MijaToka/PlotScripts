@@ -42,7 +42,7 @@ const std::map<std::string, std::string> labelPerVariable = {
     {"ZZPhi1", "#Phi1_{#it{4l}}"},
 };
 
-enum unitIdx { GeV, GeV_c, angle, cosAngle, eta };
+enum unitIdx { GeV, GeV_c, angle, cosAngle, eta, Idx };
 const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
     {GeV, massBinGranularities},    {GeV_c, ptBinGranularities},
     {angle, angleBinGranularities}, {cosAngle, cosBinGranularities},
@@ -67,6 +67,15 @@ std::string getUnitName(unitIdx unit) {
   case eta:
   default:
     return "";
+  }
+}
+
+std::string getUnitNameForTitle(unitIdx unit) {
+  switch (unit) {
+  case GeV_c:
+    return "GeV_c";
+  default:
+    return getUnitName(unit);
   }
 }
 

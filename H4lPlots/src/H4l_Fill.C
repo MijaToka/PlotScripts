@@ -144,13 +144,12 @@ initializeHistogramModels(const std::string &sampleName) {
   std::vector<HistogramModel> models;
 
   for (const auto &[unit, variables] : variablesPerUnit) {
-    std::string unitName = getUnitName(unit);
     for (const auto &variable : variables) {
       std::string xlabel = labelPerVariable.at(variable);
       for (HistogramBinning binning : binGranularites.at(unit)) {
         for (FinalStateFlavor fsFlav : fsFlavors) {
           auto currModel = HistogramModel(variable, sampleName, xlabel, binning,
-                                          fsFlav, unitName);
+                                          unit, fsFlav);
           LOG("[initializeHistogramModels]\t Created model: "
                   << currModel.getModel().fTitle << " for the variable "
                   << currModel.getVariable(),
@@ -168,7 +167,7 @@ initializeHistogramModels(const std::string &sampleName) {
                                 static_cast<Int_t>(FinalStateFlavor::E4) + 1,
                        .xlow = static_cast<Int_t>(FinalStateFlavor::E4),
                        .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
-      FinalStateFlavor::L4, /*unitName=*/"");
+      /*unit=*/Idx, FinalStateFlavor::L4);
 
   models.push_back(flavorPlot);
 
