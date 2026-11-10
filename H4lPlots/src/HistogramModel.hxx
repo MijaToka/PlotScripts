@@ -7,11 +7,7 @@
     "/eos/user/m/mtokarev/work_area/currentCMSSW/src")
 #include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
 #include "PlotScripts/H4lPlots/src/H4l_Common.C"
-
-struct HistogramBinning {
-  int nBins;
-  float xlow, xhigh;
-};
+#include "PlotScripts/H4lPlots/src/Variables.C"
 
 class HistogramModel {
   ROOT::RDF::TH1DModel model;

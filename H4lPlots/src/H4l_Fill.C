@@ -25,6 +25,7 @@
 #include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
 #include "PlotScripts/H4lPlots/src/HistogramModel.hxx"
 #include "PlotScripts/H4lPlots/src/Paths.hxx"
+#include "PlotScripts/H4lPlots/src/Variables.C"
 
 Double_t get_genEventSumw(const std::string &file_path) {
   TFile *file = TFile::Open(file_path.c_str(), "READ");
@@ -138,66 +139,6 @@ ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
   return df;
 }
 
-const std::vector<HistogramBinning> massBinGranularities = {
-    HistogramBinning{.nBins = 65, .xlow = 70., .xhigh = 200.},
-    HistogramBinning{.nBins = 233, .xlow = 70., .xhigh = 1002.},
-    HistogramBinning{.nBins = 93, .xlow = 70., .xhigh = 1000.},
-};
-const std::vector<HistogramBinning> ptBinGranularities = {
-    HistogramBinning{.nBins = 100, .xlow = 0., .xhigh = 500},
-};
-const std::vector<HistogramBinning> cosBinGranularities = {
-    HistogramBinning{.nBins = 30, .xlow = -1, .xhigh = 1},
-};
-const std::vector<HistogramBinning> etaBinGranularities = {
-    HistogramBinning{.nBins = 100, .xlow = -4, .xhigh = 4},
-};
-const std::vector<HistogramBinning> angleBinGranularities = {
-    HistogramBinning{.nBins = 100, .xlow = -TMath::Pi(), .xhigh = TMath::Pi()},
-};
-
-const std::map<std::string, std::string> labelPerVariable = {
-    {"ZZmass", "m_{#it{4l}}"},
-    {"Z1mass", "m_{Z_1}"},
-    {"Z2mass", "m_{Z_2}"},
-    {"ZZpt", "p_{T}^{#it{4l}}"},
-    {"ZZeta", "#eta_{#it{4l}}"},
-    {"ZZphi", "#phi_{#it{4l}}"},
-    {"ZZcostheta1", "cos#theta_{1}"},
-    {"ZZcostheta2", "cos#theta_{2}"},
-    {"ZZcosthetastar", "cos#theta^{*}"},
-    {"ZZPhi", "#Phi_{#it{4l}}"},
-    {"ZZPhi1", "#Phi1_{#it{4l}}"},
-};
-
-enum unitIdx { GeV, GeV_c, angle, cosAngle, eta };
-const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
-    {GeV, massBinGranularities},    {GeV_c, ptBinGranularities},
-    {angle, angleBinGranularities}, {cosAngle, cosBinGranularities},
-    {eta, etaBinGranularities},
-};
-const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
-    {GeV, {"ZZmass", "Z1mass", "Z2mass"}},
-    {GeV_c, {"ZZpt"}},
-    {angle, {"ZZphi", "ZZPhi", "ZZPhi1"}},
-    {cosAngle, {"ZZcostheta1", "ZZcostheta2", "ZZcosthetastar"}},
-    {eta, {"ZZeta"}},
-};
-
-std::string getUnitName(unitIdx unit) {
-  switch (unit) {
-  case GeV:
-    return "GeV";
-  case GeV_c:
-    return "GeV/c";
-  case angle:
-  case cosAngle:
-  case eta:
-  default:
-    return "";
-  }
-}
-
 std::vector<HistogramModel>
 initializeHistogramModels(const std::string &sampleName) {
   std::vector<HistogramModel> models;
@@ -228,18 +169,6 @@ initializeHistogramModels(const std::string &sampleName) {
                        .xlow = static_cast<Int_t>(FinalStateFlavor::E4),
                        .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
       FinalStateFlavor::L4, /*unitName=*/"");
-
-  //  HistogramModel flavorPlot =
-  //      HistogramModel{/*.model=*/
-  //                     ROOT::RDF::TH1DModel(
-  //                         TString::Format("%s_%s", "FSflav",
-  //                         sampleName.c_str()), TString::Format(";Event flavor
-  //                         pdgID"), static_cast<Int_t>(FinalStateFlavor::Mu4)
-  //                         -
-  //                             static_cast<Int_t>(FinalStateFlavor::E4) + 1,
-  //                         static_cast<Int_t>(FinalStateFlavor::E4),
-  //                         static_cast<Int_t>(FinalStateFlavor::Mu4)),
-  //                     /*.variable=*/"FSflav"};
 
   models.push_back(flavorPlot);
 
