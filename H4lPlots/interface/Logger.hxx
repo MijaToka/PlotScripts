@@ -4,7 +4,7 @@
 #include <iostream>
 
 namespace logging {
-inline char verbose = 2;
+inline char verbose = 0;
 }
 
 #define LOG(msg, level)                                                        \

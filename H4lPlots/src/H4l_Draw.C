@@ -452,6 +452,9 @@ void openFillFile(const std::string &period,
 
 void H4l_Draw(const std::string &period = "2025",
               const bool &isBlinded = true) {
+void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
+              char verboseLevel = 0) {
+  logging::verbose = verboseLevel;
 
   std::vector<std::string> periods;
 

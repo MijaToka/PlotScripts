@@ -253,8 +253,8 @@ void runMC(const std::string &period = "2025") { run<true>(period); }
 void runData(const std::string &period = "2025") { run<false>(period); }
 
 void H4l_Fill(const std::vector<std::string> &years = {"2025"},
-              int nEvents = -1) {
-  logging::verbose = 1;
+              char verboseLevel = 0) {
+  logging::verbose = verboseLevel;
   for (std::string year : years) {
     runMC(year);
     runData(year);
