@@ -62,8 +62,8 @@
                 (python3.withPackages physicsPackages)
               ];
               shellHook = ''
-                printf 'CompileFlags:\n  Add: [-std=c++17, %s]\n' \
-                  "$(root-config --cflags | sed 's/ /, /g')" > .clangd
+                printf 'CompileFlags:\n  Add: [-std=c++17, %s,-I%s]\n' \
+                  "$(root-config --cflags | sed 's/ /, /g')" "$(dirname "$PWD")" > .clangd
 
                 mkdir -p /tmp/.jupyter
                 export JUPYTER_CONFIG_DIR=/tmp/.jupyter
