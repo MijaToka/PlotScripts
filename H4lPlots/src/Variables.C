@@ -32,17 +32,17 @@ const std::vector<HistogramBinning> angleBinGranularities = {
 };
 
 const std::map<std::string, std::string> labelPerVariable = {
-    {"ZZmass", "m_{#it{4l}}"},
+    {"mass", "m_{#it{4l}}"},
     {"Z1mass", "m_{Z_1}"},
     {"Z2mass", "m_{Z_2}"},
-    {"ZZpt", "p_{T}^{#it{4l}}"},
-    {"ZZeta", "#eta_{#it{4l}}"},
-    {"ZZphi", "#phi_{#it{4l}}"},
-    {"ZZcostheta1", "cos#theta_{1}"},
-    {"ZZcostheta2", "cos#theta_{2}"},
-    {"ZZcosthetastar", "cos#theta^{*}"},
-    {"ZZPhi", "#Phi_{#it{4l}}"},
-    {"ZZPhi1", "#Phi1_{#it{4l}}"},
+    {"pt", "p_{T}^{#it{4l}}"},
+    {"eta", "#eta_{#it{4l}}"},
+    {"phi", "#phi_{#it{4l}}"},
+    {"costheta1", "cos#theta_{1}"},
+    {"costheta2", "cos#theta_{2}"},
+    {"costhetastar", "cos#theta^{*}"},
+    {"Phi", "#Phi_{#it{4l}}"},
+    {"Phi1", "#Phi1_{#it{4l}}"},
 };
 
 enum unitIdx { m_H, m_Z, GeV_c, angle, cosAngle, eta, Idx };
@@ -51,13 +51,21 @@ const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
     {GeV_c, ptBinGranularities},      {angle, angleBinGranularities},
     {cosAngle, cosBinGranularities},  {eta, etaBinGranularities},
 };
+
 const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
-    {m_H, {"ZZmass"}},
+    {m_H, {"mass"}},
     {m_Z, {"Z1mass", "Z2mass"}},
-    {GeV_c, {"ZZpt"}},
-    {angle, {"ZZphi", "ZZPhi", "ZZPhi1"}},
-    {cosAngle, {"ZZcostheta1", "ZZcostheta2", "ZZcosthetastar"}},
-    {eta, {"ZZeta"}},
+    {GeV_c, {"pt"}},
+    {angle, {"phi", "Phi", "Phi1"}},
+    {cosAngle, {"costheta1", "costheta2", "costhetastar"}},
+    {eta, {"eta"}},
+};
+
+enum CRIdx { P2F2, P3F1, SS };
+const std::map<CRIdx, std::string> CRNames = {
+    {P2F2, "2P2F"},
+    {P3F1, "3P1F"},
+    {SS, "SS"},
 };
 
 std::string getUnitName(unitIdx unit) {
@@ -70,7 +78,7 @@ std::string getUnitName(unitIdx unit) {
   case angle:
   case cosAngle:
   case eta:
-  default:
+  case Idx:
     return "";
   }
 }

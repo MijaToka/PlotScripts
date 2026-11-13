@@ -52,26 +52,37 @@ constexpr std::array<const char *, 6> MC_BkgGGTo = {
 
 constexpr std::array<const char *, 2> MC_BkgDY = {"DYJetsTo2E", "DYJetsTo2Mu"};
 
-constexpr std::array<const char *, 3> MC_BkgTT = {"TTto2L2Nu", "TTWW", "TTZZ"};
+constexpr std::array<const char *, 2> MC_BkgTT = {"TTWW", "TTZZ"};
+constexpr std::array<const char *, 1> MC_BkgTTTo = {"TTto2L2Nu"};
 
-constexpr std::array<const char *, 46> MC_dataSets = concatAll(
-    MC_SignalH124, MC_SignalH124p5, MC_SignalH125, MC_SignalH125p5,
-    MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY, MC_BkgTT);
+constexpr std::array<const char *, 46> MC_dataSets =
+    concatAll(MC_SignalH124, MC_SignalH124p5, MC_SignalH125, MC_SignalH125p5,
+              MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
+              MC_BkgTT, MC_BkgTTTo);
 
-constexpr std::array<const char *, 22> MC_dataSetsH124 = concatAll(
-    MC_SignalH124, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY, MC_BkgTT);
+constexpr std::array<const char *, 22> MC_dataSetsH124 =
+    concatAll(MC_SignalH124, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
+              MC_BkgTT, MC_BkgTTTo);
 
-constexpr std::array<const char *, 22> MC_dataSetsH124p5 = concatAll(
-    MC_SignalH124p5, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY, MC_BkgTT);
+constexpr std::array<const char *, 22> MC_dataSetsH124p5 =
+    concatAll(MC_SignalH124p5, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
+              MC_BkgTT, MC_BkgTTTo);
 
-constexpr std::array<const char *, 22> MC_dataSetsH125 = concatAll(
-    MC_SignalH125, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY, MC_BkgTT);
+constexpr std::array<const char *, 22> MC_dataSetsH125 =
+    concatAll(MC_SignalH125, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
+              MC_BkgTT, MC_BkgTTTo);
 
-constexpr std::array<const char *, 22> MC_dataSetsH125p5 = concatAll(
-    MC_SignalH125p5, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY, MC_BkgTT);
+constexpr std::array<const char *, 22> MC_dataSetsH125p5 =
+    concatAll(MC_SignalH125p5, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
+              MC_BkgTT, MC_BkgTTTo);
 
-constexpr std::array<const char *, 22> MC_dataSetsH126 = concatAll(
-    MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY, MC_BkgTT);
+constexpr std::array<const char *, 22> MC_dataSetsH126 =
+    concatAll(MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
+              MC_BkgTT, MC_BkgTTTo);
+
+constexpr std::array<const char *, 11> MC_ControlRegion =
+    concatAll(MC_BkgDY, MC_BkgGGTo, MC_BkgTTTo,
+              std::array<const char *, 1>{"WZto3LNu"}, MC_BkgQQZZ);
 
 constexpr std::array<const char *, 32> Data_EGamma2025 = {
     "EGamma02025Bv1", "EGamma02025Cv1", "EGamma02025Cv2", "EGamma02025Dv1",
