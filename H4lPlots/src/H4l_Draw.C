@@ -20,6 +20,7 @@
 #include <TString.h>
 #include <TStyle.h>
 #include <TVirtualPad.h>
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -30,6 +31,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -42,6 +44,9 @@
 #include "PlotScripts/H4lPlots/src/Paths.hxx"
 #include "PlotScripts/H4lPlots/src/Style.hxx"
 #include "PlotScripts/H4lPlots/src/Variables.C"
+
+#define N_SR_HISTOS 5
+#define N_CR_HISTOS 5
 
 const std::map<std::string, float> LumiPerPeriod = {
     {"2024", 109.95},
@@ -143,6 +148,9 @@ TH1D *agregateHistogram(TFile *file, const char *variable, int binning,
 
   for (auto sample : samples) {
     TString inHistName = makeHistoName(variable, binning, unit, sample, fsFlav);
+    LOG("[agregateHistogram]\tExtracting the histogram "
+            << inHistName << " for the variable " << variable,
+        3);
 
     TH1D *currHist = (TH1D *)file->Get(inHistName);
 
@@ -159,16 +167,15 @@ TH1D *agregateHistogram(TFile *file, const char *variable, int binning,
   return histogram;
 }
 
-enum MCHistoIdx { signalIdx, EWIdx, ZZTo4lIdx, ggToIdx, DYIdx, TTIdx, ZXIdx };
+std::array<TH1D *, N_SR_HISTOS> getMCHistosSR(TFile *inFile, Float_t lumi,
+                                              const char *variable,
+                                              FinalStateFlavor fsFlav,
+                                              int binning, unitIdx unit) {
 
-std::array<TH1D *, 7> getMCHistos(TFile *inFile, Float_t lumi,
-                                  const char *variable, FinalStateFlavor fsFlav,
-                                  int binning, unitIdx unit) {
-
-  std::string sampleBundleName;
-  auto mkBundleName = [variable, fsFlav, binning](
+  auto mkBundleName = [variable, fsFlav, binning, unit](
                           const std::string &sampleName) -> const std::string {
-    return TString::Format("%s_%iGeV_%s%s", variable, binning,
+    return TString::Format("%s_%i%s_%s%s", variable, binning,
+                           getUnitNameForTitle(unit).c_str(),
                            sampleName.c_str(), makeFSString(fsFlav).c_str())
         .Data();
   };
@@ -181,34 +188,116 @@ std::array<TH1D *, 7> getMCHistos(TFile *inFile, Float_t lumi,
 
   TH1D *signal = mkHistoSum("signal", MC_SignalH125);
   signal->Scale(lumi * 1000.);
+  signal->SetLineColor(TColor::GetColor(204, 00, 00));
+  signal->SetFillColor(TColor::GetColor(255, 155, 155));
 
   TH1D *EW = mkHistoSum("EW", MC_BkgEW);
   EW->Scale(lumi * 1000.);
+  EW->SetLineColor(TColor::GetColor(0, 0, 153));
+  EW->SetFillColor(TColor::GetColor(3, 49, 185));
 
   TH1D *ZZTo4l = mkHistoSum("qqZZ", MC_BkgQQZZ);
   ZZTo4l->Scale(lumi * 1000.);
+  ZZTo4l->SetLineColor(TColor::GetColor(0, 0, 153));
+  ZZTo4l->SetFillColor(TColor::GetColor(155, 204, 255));
 
   TH1D *ggTo = mkHistoSum("ggZZ", MC_BkgGGTo);
   ggTo->Scale(lumi * 1000.);
+  ggTo->SetLineColor(TColor::GetColor(0, 0, 153));
+  ggTo->SetFillColor(TColor::GetColor(75, 120, 255));
 
   TH1D *DY = mkHistoSum("DY", MC_BkgDY);
   DY->Scale(lumi * 1000.);
+  DY->SetLineColor(TColor::GetColor(0, 0, 153));
+  DY->SetFillColor(kOrange);
 
   TH1D *TT = mkHistoSum("ttTo", MC_BkgTT);
   TT->Scale(lumi * 1000.);
 
   TH1D *ZX = getZX(ZZTo4l, fsFlav);
   ZX->Scale(lumi * 1000.);
+  ZX->SetLineColor(TColor::GetColor(0, 51, 0));
+  ZX->SetFillColor(TColor::GetColor(102, 153, 102));
 
-  return {signal, EW, ZZTo4l, ggTo, DY, TT, ZX};
+  return {ZX, /*DY, TT, */ EW, ggTo, ZZTo4l, signal};
 }
 
-THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
+namespace MCSRHistoIdx {
+enum MCHistoIdx {
+  ZXIdx,
+  EWIdx,
+  ggToIdx,
+  ZZTo4lIdx,
+  /*DYIdx, TTIdx,*/
+  signalIdx
+};
+}
+
+std::array<TH1D *, N_CR_HISTOS> getMCHistosCR(TFile *inFile, Float_t lumi,
+                                              const char *variable,
+                                              FinalStateFlavor fsFlav,
+                                              int binning, unitIdx unit) {
+  auto mkBundleName = [variable, fsFlav, binning, unit](
+                          const std::string &sampleName) -> const std::string {
+    return TString::Format("%s_%i%s_%s%s", variable, binning,
+                           getUnitNameForTitle(unit).c_str(),
+                           sampleName.c_str(), makeFSString(fsFlav).c_str())
+        .Data();
+  };
+
+  auto mkHistoSum = [inFile, variable, binning, unit, fsFlav, mkBundleName](
+                        const std::string &sampleName, const auto &dataSet) {
+    return agregateHistogram(inFile, variable, binning, unit, dataSet,
+                             mkBundleName(sampleName), fsFlav);
+  };
+  TH1D *DY = mkHistoSum("DY_CR", MC_BkgDY);
+  DY->Scale(lumi * 1000.);
+  DY->SetLineColor(TColor::GetColor(0, 0, 153));
+  DY->SetFillColor(kOrange);
+
+  TH1D *ggTo = mkHistoSum("ggTo_CR", MC_BkgGGTo);
+  ggTo->Scale(lumi * 1000.);
+  ggTo->SetLineColor(TColor::GetColor(0, 0, 153));
+  ggTo->SetFillColor(TColor::GetColor(102, 255, 102));
+
+  TH1D *TTTo = mkHistoSum("TTTo_CR", MC_BkgTTTo);
+  TTTo->Scale(lumi * 1000.);
+  TTTo->SetLineColor(TColor::GetColor(0, 0, 153));
+  TTTo->SetFillColor(TColor::GetColor(255, 153, 102));
+
+  TH1D *WZTo = mkHistoSum("WZTo_CR", std::array<const char *, 1>{"WZto3LNu"});
+  WZTo->Scale(lumi * 1000.);
+  WZTo->SetLineColor(TColor::GetColor(0, 0, 153));
+  WZTo->SetFillColor(TColor::GetColor(175, 204, 255));
+
+  TH1D *ZZTo = mkHistoSum("ZZTo_CR", MC_BkgQQZZ);
+  ZZTo->Scale(lumi * 1000.);
+  ZZTo->SetLineColor(TColor::GetColor(0, 0, 153));
+  ZZTo->SetFillColor(TColor::GetColor(155, 204, 255));
+
+  return {ZZTo, WZTo, TTTo, ggTo, DY};
+}
+
+namespace MCCRHistoIdx {
+enum MCHistoIdx { ZZToIdx, WZToIdx, TTToIdx, ggToIdx, DYIdx };
+}
+
+template <bool isCR>
+std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS>
+getMCHistos(TFile *inFile, Float_t lumi, const char *variable,
+            FinalStateFlavor fsFlav, int binning, unitIdx unit) {
+  LOG("[getMCHistos]\tGetting the histograms for the variable " << variable, 3);
+  if constexpr (isCR) {
+    return getMCHistosCR(inFile, lumi, variable, fsFlav, binning, unit);
+  } else {
+    return getMCHistosSR(inFile, lumi, variable, fsFlav, binning, unit);
+  }
+}
+
+template <size_t N>
+THStack *stackHistograms(const std::array<TH1D *, N> &histograms,
                          const char *variable, FinalStateFlavor fsFlav,
                          int binning, unitIdx unit) {
-  LOG("[stackHistograms]\tUnpacking histograms", 2);
-  auto &[signal, EW, ZZTo4l, ggToZZ, DY, TT, ZX] = histograms;
-  std::string fsString = makeFSString(fsFlav);
 
   TString stackName = makeCanvasName(variable, binning, unit, fsFlav);
 
@@ -216,7 +305,7 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   LOG("[stackHistograms]\tCreating the xlabel of the canvas", 3);
   if (labelPerVariable.find(variable) == labelPerVariable.end()) {
     LOGERR("[stackHistograms]\tCould not find latex variable name for "
-               << variable << " using " << variable << "instead",
+               << variable << " using " << variable << " instead",
            0);
     xlabel = variable;
   } else {
@@ -240,41 +329,14 @@ THStack *stackHistograms(const std::array<TH1D *, 7> &histograms,
   LOG("[stackHistograms]\tCreating stack", 2);
   THStack *stack = new THStack(stackName, stackTitle);
 
-  signal->SetLineColor(TColor::GetColor(204, 00, 00));
-  signal->SetFillColor(TColor::GetColor(255, 155, 155));
-
-  EW->SetLineColor(TColor::GetColor(0, 0, 153));
-  EW->SetFillColor(TColor::GetColor(3, 49, 185));
-
-  ZZTo4l->SetLineColor(TColor::GetColor(0, 0, 153));
-  ZZTo4l->SetFillColor(TColor::GetColor(155, 204, 255));
-
-  ggToZZ->SetLineColor(TColor::GetColor(0, 0, 153));
-  ggToZZ->SetFillColor(TColor::GetColor(75, 120, 255));
-
-  DY->SetLineColor(TColor::GetColor(0, 0, 153));
-  DY->SetFillColor(kOrange);
-
-  ZX->SetLineColor(TColor::GetColor(0, 51, 0));
-  ZX->SetFillColor(TColor::GetColor(102, 153, 102));
-
   LOG("[stackHistograms]\tStacking histograms", 2);
-  if (strcmp(variable, "ZZMass") == 0)
-    stack->Add(ZX, "HISTO");
-
-  stack->Add(EW, "HISTO");
-  stack->Add(ggToZZ, "HISTO");
-  stack->Add(ZZTo4l, "HISTO");
-  // stack->Add(DY, "HISTO");
-  // stack->Add(TT, "HISTO");
-
-  for (TH1D *histo : histograms)
+  for (TH1D *histo : histograms) {
     if (histo->GetMinimum() < 0)
       LOGERR("[stackHistograms][WARNING]\tHistogram "
                  << histo->GetName() << " has negative minimum\n",
              1);
-
-  stack->Add(signal, "HISTO");
+    stack->Add(histo, "HISTO");
+  }
 
   return stack;
 }
@@ -325,9 +387,34 @@ TH1D *TGraphAsymmErrorsToTH1(TGraphAsymmErrors *graph, TH1D *model,
   return outHisto;
 }
 
-void drawPlots(TCanvas *canvas, THStack *mcStack,
-               const std::array<TH1D *, 7> &mcHistos, TGraphAsymmErrors *data,
-               const char *variable, const bool blinded = true) {
+template <bool isCR>
+void addLegendEntries(
+    TLegend *legend, TGraphAsymmErrors *data,
+    const std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS> &mcHistos,
+    const char *variable) {
+  legend->AddEntry(data, "Data", "p");
+  if constexpr (isCR) {
+    legend->AddEntry(mcHistos[MCCRHistoIdx::DYIdx], "DY", "f");
+    legend->AddEntry(mcHistos[MCCRHistoIdx::ZZToIdx], "ZZ->4l", "f");
+    legend->AddEntry(mcHistos[MCCRHistoIdx::TTToIdx], "TT->2l 2#nu", "f");
+    legend->AddEntry(mcHistos[MCCRHistoIdx::WZToIdx], "WZ->3l 1#nu", "f");
+    legend->AddEntry(mcHistos[MCCRHistoIdx::ggToIdx], "gg->4l", "f");
+  } else {
+    legend->AddEntry(mcHistos[MCSRHistoIdx::signalIdx], "H(125)", "f");
+    legend->AddEntry(mcHistos[MCSRHistoIdx::ZZTo4lIdx],
+                     "q#bar{q}#rightarrow ZZ", "f");
+    legend->AddEntry(mcHistos[MCSRHistoIdx::ggToIdx], "gg#rightarrow ZZ", "f");
+    legend->AddEntry(mcHistos[MCSRHistoIdx::EWIdx], "EW", "f");
+    if (strcmp(variable, "ZZmass"))
+      legend->AddEntry(mcHistos[MCSRHistoIdx::ZXIdx], "Z+X", "f");
+  }
+}
+
+template <bool isCR>
+void drawPlots(
+    TCanvas *canvas, THStack *mcStack,
+    const std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS> &mcHistos,
+    TGraphAsymmErrors *data, const char *variable, const bool blinded = true) {
 
   canvas->SetTicks();
 
@@ -379,13 +466,7 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
   gPad->RedrawAxis();
 
   TLegend *legend = new TLegend(0.65, 0.40, 0.95, 0.78);
-  legend->AddEntry(data, "Data", "p");
-  legend->AddEntry(mcHistos[signalIdx], "H(125)", "f");
-  legend->AddEntry(mcHistos[ZZTo4lIdx], "q#bar{q}#rightarrow ZZ", "f");
-  legend->AddEntry(mcHistos[ggToIdx], "gg#rightarrow ZZ", "f");
-  legend->AddEntry(mcHistos[EWIdx], "EW", "f");
-  legend->AddEntry(mcHistos[ZXIdx], "Z+X", "f");
-
+  addLegendEntries<isCR>(legend, data, mcHistos, variable);
   legend->SetFillColor(kWhite);
   legend->SetLineColor(kWhite);
   legend->SetTextFont(43);
@@ -394,10 +475,16 @@ void drawPlots(TCanvas *canvas, THStack *mcStack,
   legend->Draw();
 
   padRatio->cd();
-
-  TH1D *hsum = (TH1D *)mcHistos[signalIdx]->Clone("hsum");
-  for (MCHistoIdx idx : {EWIdx, ZZTo4lIdx, ggToIdx, /*DYIdx, TTIdx,*/ ZXIdx})
-    hsum->Add(mcHistos[idx]);
+  bool firstHisto(true);
+  TH1D *hsum;
+  for (TH1D *hist : mcHistos) {
+    if (firstHisto) {
+      hsum = (TH1D *)hist->Clone("hsum");
+      firstHisto = false;
+      continue;
+    }
+    hsum->Add(hist);
+  }
 
   TH1D *dataHisto = TGraphAsymmErrorsToTH1(data, hsum);
   TH1D *ratio = (TH1D *)dataHisto->Clone("Ratio");
@@ -464,15 +551,48 @@ void openFillFile(const std::string &period,
   }
 }
 
+template <bool isCR> auto selectIdx() {
+  if constexpr (isCR) {
+    return std::array<MCCRHistoIdx::MCHistoIdx, 5>{
+        MCCRHistoIdx::DYIdx, MCCRHistoIdx::TTToIdx, MCCRHistoIdx::WZToIdx,
+        MCCRHistoIdx::ZZToIdx, MCCRHistoIdx::ggToIdx};
+  } else {
+    return std::array<MCSRHistoIdx::MCHistoIdx, 7>{
+        MCSRHistoIdx::signalIdx, MCSRHistoIdx::EWIdx, MCSRHistoIdx::ZZTo4lIdx,
+        MCSRHistoIdx::ggToIdx, /*MCSRHistoIdx::DYIdx, MCSRHistoIdx::TTIdx,*/
+        MCSRHistoIdx::ZXIdx};
+  }
+}
+
+template <CRIdx... Idxs, class F> void forEachCR(F &&f) {
+  (f(std::integral_constant<CRIdx, Idxs>{}), ...);
+}
+
+template <typename T, size_t N>
+std::array<T, N - 1> drop_elem(std::array<T, N> &arr, size_t Nth) {
+  static_assert(N > 0, "Can't drop from empty array");
+  assert(N > Nth);
+  std::array<T, N - 1> out;
+  std::copy(arr.begin(), arr.begin() + Nth, out.begin());
+  std::copy(arr.begin() + Nth + 1, arr.end(), out.begin() + Nth);
+  return out;
+}
+
+template <bool isCR, CRIdx crIdx = P2F2>
 void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
                std::map<std::string, TFile *> &inDataFiles,
                const std::vector<std::string> &periods, const char *variable,
                FinalStateFlavor fsFlav, int binning, unitIdx unit,
                bool isBlinded) {
-  std::array<TH1D *, 7> MCHistograms;
+  std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS> MCHistograms;
   TH1D *dataHisto;
+  std::string fullVariableName =
+      !isCR ? TString::Format("ZZ%s", variable).Data()
+            : TString::Format("ZLL%s%s", CRNames.at(crIdx).c_str(), variable)
+                  .Data();
 
-  TString canvasName = makeCanvasName(variable, binning, unit, fsFlav);
+  TString canvasName =
+      makeCanvasName(fullVariableName.c_str(), binning, unit, fsFlav);
 
   Int_t canvasXSize(1200), canvasYSize(900);
 
@@ -486,40 +606,53 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
 
     float lumi = LumiPerPeriod.at(period);
 
-    LOG("[writePlot]\tExtracting histograms for variable="
-            << variable << " in the final state" << static_cast<Int_t>(fsFlav)
-            << " at " << binning << " " << getUnitName(unit) << " binning",
+    LOG("[writePlot]\tExtracting histograms for fullVariableName="
+            << fullVariableName << " in the final state "
+            << static_cast<Int_t>(fsFlav) << " at " << binning << " "
+            << getUnitName(unit) << " binning",
         2);
     if (firstPeriod) {
       MCHistograms =
-          getMCHistos(inMCFiles[period], lumi, variable, fsFlav, binning, unit);
+          getMCHistos<isCR>(inMCFiles[period], lumi, fullVariableName.c_str(),
+                            fsFlav, binning, unit);
 
       dataHisto = agregateHistogram(
-          inDataFiles[period], variable, binning, unit, Data_dataSets2025,
+          inDataFiles[period], fullVariableName.c_str(), binning, unit,
+          Data_dataSets2025,
           TString::Format("Data_histogram%s", period.c_str()).Data(), fsFlav);
       firstPeriod = !firstPeriod;
     } else {
-      const auto currMCHistos =
-          getMCHistos(inMCFiles[period], lumi, variable, fsFlav, binning, unit);
-      for (MCHistoIdx idx :
-           {signalIdx, EWIdx, ZZTo4lIdx, ggToIdx, DYIdx, TTIdx, ZXIdx})
+      const auto currMCHistos = getMCHistos</*isCR=*/false>(
+          inMCFiles[period], lumi, fullVariableName.c_str(), fsFlav, binning,
+          unit);
+      for (auto idx : selectIdx<isCR>())
         MCHistograms[idx]->Add(currMCHistos[idx]);
 
       dataHisto->Add(agregateHistogram(
-          inDataFiles[period], variable, binning, unit, Data_dataSets2025,
+          inDataFiles[period], fullVariableName.c_str(), binning, unit,
+          Data_dataSets2025,
           TString::Format("Data_histogram%s", period.c_str()).Data(), fsFlav));
     }
   }
 
   LOG("[writePlot]\tStacking histograms", 1);
-  THStack *stack =
-      stackHistograms(MCHistograms, variable, fsFlav, binning, unit);
+  THStack *stack;
+
+  if (!isCR && fullVariableName == "ZZmass")
+    stack = stackHistograms(MCHistograms, fullVariableName.c_str(), fsFlav,
+                            binning, unit);
+  else
+    // Drop ZX
+    stack = stackHistograms(drop_elem(MCHistograms, MCSRHistoIdx::ZXIdx),
+                            fullVariableName.c_str(), fsFlav, binning, unit);
 
   LOG("[writePlot]\tTransforming data histograms to a graph", 1);
-  TGraphAsymmErrors *data = getDataGraph(dataHisto, isBlinded);
+  TGraphAsymmErrors *data =
+      getDataGraph(dataHisto, isBlinded && "ZZmass" == fullVariableName);
 
   LOG("[writePlot]\tLaying down the canvas", 1);
-  drawPlots(canvas, stack, MCHistograms, data, variable, isBlinded);
+  drawPlots<isCR>(canvas, stack, MCHistograms, data, fullVariableName.c_str(),
+                  isBlinded);
 
   outFile->cd();
   canvas->Write();
@@ -573,8 +706,18 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
     for (const auto &variable : variables) {
       for (HistogramBinning binning : binGranularites.at(unit))
         for (FinalStateFlavor fsFlav : fsFlavors) {
-          writePlot(outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
-                    fsFlav, int(binning.getBinSize()), unit, isBlinded);
+          writePlot</*isCR=*/false>(outFile, inMCFiles, inDataFiles, periods,
+                                    variable.c_str(), fsFlav,
+                                    int(binning.getBinSize()), unit, isBlinded);
+          writePlot</*isCR=*/true, P2F2>(
+              outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
+              fsFlav, int(binning.getBinSize()), unit, isBlinded);
+          writePlot</*isCR=*/true, P3F1>(
+              outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
+              fsFlav, int(binning.getBinSize()), unit, isBlinded);
+          writePlot</*isCR=*/true, SS>(
+              outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
+              fsFlav, int(binning.getBinSize()), unit, isBlinded);
         }
     }
   }
