@@ -1,20 +1,25 @@
 #include <ROOT/RDF/HistoModels.hxx>
 #include <ROOT/RDF/InterfaceUtils.hxx>
+#include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RDataFrame.hxx>
+#include <ROOT/RResultHandle.hxx>
 #include <ROOT/RResultPtr.hxx>
 #include <ROOT/RVec.hxx>
+#include <Rtypes.h>
 #include <RtypesCore.h>
 #include <TFile.h>
 #include <TH1.h>
 #include <TH1F.h>
 #include <TMath.h>
+#include <TROOT.h>
 #include <TString.h>
 #include <TTree.h>
 #include <TTreeReader.h>
 #include <TTreeReaderValue.h>
+#include <algorithm>
+#include <array>
+#include <cstring>
 #include <filesystem>
-#include <map>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -76,80 +81,195 @@ Float_t get_genEventSumwSample(const std::vector<std::string> &files) {
   return genEventSumw;
 }
 
+template <bool hasCR>
 ROOT::RDF::RNode initializeRDF(const std::vector<std::string> &files) {
   ROOT::RDF::RNode df = ROOT::RDataFrame("Events", files);
-  df = df.Filter(
-             [](Short_t bestIdx, Bool_t HLT_passZZ4l) {
-               return bestIdx >= 0 && HLT_passZZ4l;
-             },
-             {"bestCandIdx", "HLT_passZZ4l"})
-           .Define("eventWeight", []() { return 1.; }, {});
+  df = df.Define("eventWeight", []() { return 1.; }, {});
+
+  if constexpr (hasCR) {
+    df = df.Define("eventWeightCR2P2F", []() { return 1.; }, {})
+             .Define("eventWeightCR3P1F", []() { return 1.; }, {})
+             .Define("eventWeightCRSS", []() { return 1.; }, {})
+             .Define("eventWeightCRZL", []() { return 1.; }, {});
+  }
   return df;
 }
 
+template <bool hasCR>
 ROOT::RDF::RNode calculateEventWeight(Float_t genEventSumw,
                                       ROOT::RDF::RNode df) {
-  df = df.Redefine(
-      "eventWeight",
-      [genEventSumw](Float_t overallWeight, ROOT::RVecF dataMCWeight,
-                     Short_t bestIdx) -> Float_t {
-        if (genEventSumw == 0 || bestIdx == -1)
-          return 0.;
-        else
-          return overallWeight * dataMCWeight[bestIdx] / genEventSumw;
-      },
-      {"overallEventWeight", "ZZCand_dataMCWeight", "bestCandIdx"});
+
+  auto calculateWeight = [genEventSumw](Float_t overallWeight,
+                                        ROOT::RVecF dataMCWeight,
+                                        Short_t bestIdx) -> Float_t {
+    if (genEventSumw == 0 || bestIdx == -1)
+      return 0.;
+    else
+      return overallWeight * dataMCWeight[bestIdx] / genEventSumw;
+  };
+
+  df =
+      df.Redefine("eventWeight", calculateWeight,
+                  {"overallEventWeight", "ZZCand_dataMCWeight", "bestCandIdx"});
+
+  if constexpr (hasCR) {
+    df = df.Redefine(
+               "eventWeightCR2P2F", calculateWeight,
+               {"overallEventWeight", "ZLLCand_dataMCWeight", "ZLLbest2P2FIdx"})
+             .Redefine("eventWeightCR3P1F", calculateWeight,
+                       {"overallEventWeight", "ZLLCand_dataMCWeight",
+                        "ZLLbest3P1FIdx"})
+             .Redefine(
+                 "eventWeightCRSS", calculateWeight,
+                 {"overallEventWeight", "ZLLCand_dataMCWeight", "ZLLbestSSIdx"})
+             .Redefine("eventWeightCRZL",
+                       [genEventSumw](
+                           Float_t overallWeight, ROOT::RVecF dataMCWeight,
+                           Short_t bestZIdx, Short_t bestZLIdx) -> Float_t {
+                         if (genEventSumw == 0 || bestZLIdx == -1) {
+                           return 0;
+                         } else {
+                           return overallWeight / genEventSumw;
+                         }
+                       },
+                       {"overallEventWeight", "ZZCand_dataMCWeight", "bestZIdx",
+                        "ZLCand_lepIdx"});
+  }
 
   return df;
 }
 
-#define MK_FLATTEN_VARIABLE(columnTag, containerClass)                         \
-  "ZZ" columnTag,                                                              \
-      [](const containerClass &ZZCand, Short_t bestIdx) {                      \
-        return ZZCand[bestIdx];                                                \
-      },                                                                       \
+template <typename T>
+inline T flattenVariable(const ROOT::VecOps::RVec<T> &Cand, Short_t bestIdx) {
+  return bestIdx >= 0 ? Cand[bestIdx] : -999.;
+}
+
+#define SR_FLATTEN_VARIABLE(columnTag, variableType)                           \
+  "ZZ" columnTag, flattenVariable<variableType>,                               \
       {"ZZCand_" columnTag, "bestCandIdx"}
 
+#define CR_FLATTEN_VARIABLE(columnTag, variableType, region)                   \
+  "ZLL" region columnTag, flattenVariable<variableType>,                       \
+      {"ZLLCand_" columnTag, "ZLLbest" region "Idx"}
+
+#define CR2P2F_FLATTEN_VARIABLE(columnTag, variableType)                       \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "2P2F")
+
+#define CR3P1F_FLATTEN_VARIABLE(columnTag, variableType)                       \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "3P1F")
+
+#define CRSS_FLATTEN_VARIABLE(columnTag, variableType)                         \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "SS")
+
+#define ZL_FLATTEN_VARIABLE(columnTag, variableType)                           \
+  "ZL" columnTag, flattenVariable<variableType>,                               \
+      {"ZCand_" columnTag, "bestZIdx"}
+
+#define LEP_FLATTEN_VARIABLE(columnTag, variableType)                          \
+  "ZLlepton" columnTag, flattenVariable<variableType>,                         \
+      {"Lepton_" columnTag, "ZLCand_lepIdx"}
+
+#define DEFINE_SINGLE_VARIABLES(X)                                             \
+  .Define(X("mass", Float_t))                                                  \
+      .Define(X("pt", Float_t))                                                \
+      .Define(X("eta", Float_t))                                               \
+      .Define(X("phi", Float_t))
+
+#define DEFINE_ZZ_VARIABLES(X)                                                 \
+  .Define(X("Z1mass", Float_t))                                                \
+      .Define(X("Z2mass", Float_t))                                            \
+      .Define(X("costheta1", Float_t))                                         \
+      .Define(X("costheta2", Float_t))                                         \
+      .Define(X("costhetastar", Float_t))                                      \
+      .Define(X("Phi", Float_t))                                               \
+      .Define(X("Phi1", Float_t))
+
+#define DEFINE_VARIABLES(X) DEFINE_SINGLE_VARIABLES(X) DEFINE_ZZ_VARIABLES(X)
+
+template <bool hasCR>
 ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
-  df = df.Define(MK_FLATTEN_VARIABLE("mass", ROOT::RVecF))
-           .Define("Z1mass",
-                   [](ROOT::RVecF Z1Mass, Short_t bestIdx) {
-                     return Z1Mass[bestIdx];
-                   },
-                   {"ZZCand_Z1mass", "bestCandIdx"})
-           .Define("Z2mass",
-                   [](ROOT::RVecF Z2Mass, Short_t bestIdx) {
-                     return Z2Mass[bestIdx];
-                   },
-                   {"ZZCand_Z2mass", "bestCandIdx"})
-           .Define("FSflav",
-                   [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                     return Z1Flav[bestIdx] * Z2Flav[bestIdx];
-                   },
-                   {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"})
-           .Define(MK_FLATTEN_VARIABLE("pt", ROOT::RVecF))
-           .Define(MK_FLATTEN_VARIABLE("eta", ROOT::RVecF))
-           .Define(MK_FLATTEN_VARIABLE("phi", ROOT::RVecF))
-           .Define(MK_FLATTEN_VARIABLE("costheta1", ROOT::RVecF))
-           .Define(MK_FLATTEN_VARIABLE("costheta2", ROOT::RVecF))
-           .Define(MK_FLATTEN_VARIABLE("costhetastar", ROOT::RVecF))
-           .Define(MK_FLATTEN_VARIABLE("Phi", ROOT::RVecF))
-           .Define(MK_FLATTEN_VARIABLE("Phi1", ROOT::RVecF));
+  df = df.Define("ZZFSflav",
+                 [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                   return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                 },
+                 {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"})
+           DEFINE_VARIABLES(SR_FLATTEN_VARIABLE);
+
+  if constexpr (hasCR) {
+    df =
+        df.Define("ZLL2P2FFSflav",
+                  [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                    return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                  },
+                  {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest2P2FIdx"})
+            .Define(
+                "ZLL3P1FFSflav",
+                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                },
+                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest3P1FIdx"})
+            .Define(
+                "ZLLSSFSflav",
+                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                },
+                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbestSSIdx"})
+
+                DEFINE_VARIABLES(CR2P2F_FLATTEN_VARIABLE)
+                    DEFINE_VARIABLES(CR3P1F_FLATTEN_VARIABLE)
+                        DEFINE_VARIABLES(CRSS_FLATTEN_VARIABLE)
+                            DEFINE_SINGLE_VARIABLES(ZL_FLATTEN_VARIABLE)
+                                DEFINE_SINGLE_VARIABLES(LEP_FLATTEN_VARIABLE);
+  }
 
   return df;
 }
 
+template <bool hasCR>
 std::vector<HistogramModel>
 initializeHistogramModels(const std::string &sampleName) {
   std::vector<HistogramModel> models;
 
-  for (const auto &[unit, variables] : variablesPerUnit) {
+  // Z+ll plots
+  for (const auto &[unit, variables] : variablesPerUnit)
     for (const auto &variable : variables) {
       std::string xlabel = labelPerVariable.at(variable);
       for (HistogramBinning binning : binGranularites.at(unit)) {
         for (FinalStateFlavor fsFlav : fsFlavors) {
-          auto currModel = HistogramModel(variable, sampleName, xlabel, binning,
-                                          unit, fsFlav);
+          auto currModel = HistogramModel(/*isCR=*/false, variable, sampleName,
+                                          xlabel, binning, unit, fsFlav);
+          LOG("[initializeHistogramModels]\t Created model: "
+                  << currModel.getModel().fTitle,
+              3);
+          models.push_back(currModel);
+
+          // Z+X control region plots
+          if constexpr (hasCR) {
+            for (CRIdx crIdx : {P2F2, P3F1, SS}) {
+              auto currModel =
+                  HistogramModel(/*isCR=*/true, variable, sampleName, xlabel,
+                                 binning, unit, fsFlav, crIdx);
+
+              LOG("[initializeHistogramModels]\t Created model: "
+                      << currModel.getModel().fTitle << " for the variable "
+                      << currModel.getVariable(),
+                  3);
+              models.push_back(currModel);
+            }
+          }
+        }
+      }
+    }
+
+  // Z+l control region plots
+  if constexpr (hasCR) {
+    for (const auto &[unit, variables] : variablesPerUnitZL)
+      for (const auto &variable : variables) {
+        std::string xlabel = labelPerVariableZL.at(variable);
+        for (HistogramBinning binning : binGranularites.at(unit)) {
+          auto currModel = HistogramModel(
+              /*isCR=*/true, variable, sampleName, xlabel, binning, unit,
+              /*fsFlav=*/FinalStateFlavor::L4, /*crIdx=*/ZL);
           LOG("[initializeHistogramModels]\t Created model: "
                   << currModel.getModel().fTitle << " for the variable "
                   << currModel.getVariable(),
@@ -157,10 +277,11 @@ initializeHistogramModels(const std::string &sampleName) {
           models.push_back(currModel);
         }
       }
-    }
   }
 
+  // Final state flavor plots as a sanity check
   HistogramModel flavorPlot = HistogramModel(
+      /*isCR=*/false,
       /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",
       /*binning=*/
       HistogramBinning{.nBins = static_cast<Int_t>(FinalStateFlavor::Mu4) -
@@ -170,26 +291,44 @@ initializeHistogramModels(const std::string &sampleName) {
       /*unit=*/Idx, FinalStateFlavor::L4);
 
   models.push_back(flavorPlot);
+  if constexpr (hasCR) {
+    for (CRIdx crIdx : {P2F2, P3F1, SS}) {
+      HistogramModel flavorPlot = HistogramModel(
+          /*isCR=*/true,
+          /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",
+          /*binning=*/
+          HistogramBinning{
+              .nBins = 2 * static_cast<Int_t>(FinalStateFlavor::Mu4) + 1,
+              .xlow = -static_cast<Int_t>(FinalStateFlavor::Mu4),
+              .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
+          /*unit=*/Idx, FinalStateFlavor::L4, crIdx);
 
+      models.push_back(flavorPlot);
+    }
+  }
   return models;
 }
 
-template <bool isMC> void fillHistos(const DataSet &sample, TFile &outFile) {
+template <bool isMC, bool hasCR>
+void fillHistos(const DataSet &sample, TFile &outFile) {
   std::vector<std::string> files = getFileNames(sample);
-  ROOT::RDF::RNode df = initializeRDF(files);
+  ROOT::RDF::RNode df = initializeRDF<hasCR>(files);
 
   if constexpr (isMC) {
     Float_t genEventSumw = get_genEventSumwSample(files);
-    df = calculateEventWeight(genEventSumw, df);
+    df = calculateEventWeight<hasCR>(genEventSumw, df);
   }
   LOG("[fillHistos]\tInitializing variables", 1);
-  df = initializeVariables(df);
+  df = initializeVariables<hasCR>(df);
 
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms;
+  std::vector<ROOT::RDF::RResultHandle> sumWs;
+
+  std::vector<ROOT::RDF::RResultHandle> handles;
 
   LOG("[fillHistos]\tCreating TH1D models", 1);
   std::vector<HistogramModel> histoModels =
-      initializeHistogramModels(sample.name);
+      initializeHistogramModels<hasCR>(sample.name);
 
   for (auto model : histoModels) {
     auto selection = df;
@@ -203,18 +342,32 @@ template <bool isMC> void fillHistos(const DataSet &sample, TFile &outFile) {
     LOG("[fillHistos]\tCreating histogram "
             << model.getModel().fName << " with title "
             << model.getModel().fTitle << " for the variable "
-            << model.getVariable(),
+            << model.getVariable() << " with weightColmn " << model.getWeight(),
         2);
-    auto hist =
-        selection.Histo1D(model.getModel(), model.getVariable(), "eventWeight");
+    auto hist = selection.Histo1D(model.getModel(), model.getVariable(),
+                                  model.getWeight());
     histograms.push_back(hist);
+    handles.push_back(hist);
+
+    auto sumW = selection.Sum(model.getWeight());
+    sumWs.push_back(sumW);
+    handles.push_back(sumW);
   }
+
+  LOG("[fillHistos]\tRunning event loop for " << sample.name, 1);
+  ROOT::RDF::RunGraphs(handles);
 
   outFile.cd();
 
   LOG("[fillHistos]\tWriting histograms to output file", 1);
-  for (auto &hist : histograms)
-    hist->Write();
+
+  for (size_t i = 0; i < histograms.size(); ++i) {
+    LOG("[fillHistos]\tWriting hitogram "
+            << histograms[i]->GetName() << " with "
+            << sumWs[i].GetValue<Double_t>() << " events",
+        2);
+    histograms[i]->Write();
+  }
 }
 
 template <bool isMC> constexpr auto selectDataSet() {
@@ -240,9 +393,19 @@ template <bool isMC> void run(const std::string &period = "2025") {
         DataSet{.name = channel,
                 .path = std::filesystem::path(INPUT_PATH[period] / channel)};
 
-    LOG("[run]\tFilling histograms from ROOT file(s) in " << sample.path, 0);
+    bool hasCR =
+        !isMC || std::find_if(MC_ControlRegion.begin(), MC_ControlRegion.end(),
+                              [sample](const char *s) {
+                                return std::strcmp(s, sample.name.c_str()) == 0;
+                              }) != MC_ControlRegion.end();
+    LOG("[run]\tFilling histograms from ROOT file(s) in "
+            << sample.path << " with isMC: " << isMC << " hasCR: " << hasCR,
+        0);
 
-    fillHistos<isMC>(sample, *outFile);
+    if (hasCR)
+      fillHistos<isMC, true>(sample, *outFile);
+    else
+      fillHistos<isMC, false>(sample, *outFile);
   }
   LOG("[run]\tClosing file " << outName, 0);
   outFile->Close();
@@ -255,6 +418,8 @@ void runData(const std::string &period = "2025") { run<false>(period); }
 void H4l_Fill(const std::vector<std::string> &years = {"2025"},
               char verboseLevel = 0) {
   logging::verbose = verboseLevel;
+  ROOT::EnableThreadSafety();
+  // ROOT::EnableImplicitMT(2);
   for (std::string year : years) {
     runMC(year);
     runData(year);
