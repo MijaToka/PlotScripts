@@ -586,10 +586,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
                bool isBlinded) {
   std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS> MCHistograms;
   TH1D *dataHisto;
-  std::string fullVariableName =
-      !isCR ? TString::Format("ZZ%s", variable).Data()
-            : TString::Format("ZLL%s%s", CRNames.at(crIdx).c_str(), variable)
-                  .Data();
+  std::string fullVariableName = getVariablePrefix(isCR, crIdx) + variable;
 
   TString canvasName =
       makeCanvasName(fullVariableName.c_str(), binning, unit, fsFlav);
@@ -721,6 +718,16 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
         }
     }
   }
+
+  for (const auto &[unit, variables] : variablesPerUnitZL)
+    for (const auto &variable : variables) {
+      std::string xlabel = labelPerVariableZL.at(variable);
+      for (HistogramBinning binning : binGranularites.at(unit)) {
+        writePlot</*isCR=*/true, ZL>(
+            outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
+            FinalStateFlavor::L4, int(binning.getBinSize()), unit, isBlinded);
+      }
+    }
 
   LOG("[H4l_Draw]\tClosing file " << outPath, 0);
   outFile->Close();

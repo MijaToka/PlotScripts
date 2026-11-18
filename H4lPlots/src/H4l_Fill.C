@@ -89,7 +89,8 @@ ROOT::RDF::RNode initializeRDF(const std::vector<std::string> &files) {
   if constexpr (hasCR) {
     df = df.Define("eventWeightCR2P2F", []() { return 1.; }, {})
              .Define("eventWeightCR3P1F", []() { return 1.; }, {})
-             .Define("eventWeightCRSS", []() { return 1.; }, {});
+             .Define("eventWeightCRSS", []() { return 1.; }, {})
+             .Define("eventWeightCRZL", []() { return 1.; }, {});
   }
   return df;
 }
@@ -118,9 +119,21 @@ ROOT::RDF::RNode calculateEventWeight(Float_t genEventSumw,
              .Redefine("eventWeightCR3P1F", calculateWeight,
                        {"overallEventWeight", "ZLLCand_dataMCWeight",
                         "ZLLbest3P1FIdx"})
-             .Redefine("eventWeightCRSS", calculateWeight,
-                       {"overallEventWeight", "ZLLCand_dataMCWeight",
-                        "ZLLbestSSIdx"});
+             .Redefine(
+                 "eventWeightCRSS", calculateWeight,
+                 {"overallEventWeight", "ZLLCand_dataMCWeight", "ZLLbestSSIdx"})
+             .Redefine("eventWeightCRZL",
+                       [genEventSumw](
+                           Float_t overallWeight, ROOT::RVecF dataMCWeight,
+                           Short_t bestZIdx, Short_t bestZLIdx) -> Float_t {
+                         if (genEventSumw == 0 || bestZLIdx == -1) {
+                           return 0;
+                         } else {
+                           return overallWeight / genEventSumw;
+                         }
+                       },
+                       {"overallEventWeight", "ZZCand_dataMCWeight", "bestZIdx",
+                        "ZLCand_lepIdx"});
   }
 
   return df;
@@ -148,18 +161,30 @@ inline T flattenVariable(const ROOT::VecOps::RVec<T> &Cand, Short_t bestIdx) {
 #define CRSS_FLATTEN_VARIABLE(columnTag, variableType)                         \
   CR_FLATTEN_VARIABLE(columnTag, variableType, "SS")
 
-#define DEFINE_VARIABLES(X)                                                    \
+#define ZL_FLATTEN_VARIABLE(columnTag, variableType)                           \
+  "ZL" columnTag, flattenVariable<variableType>,                               \
+      {"ZCand_" columnTag, "bestZIdx"}
+
+#define LEP_FLATTEN_VARIABLE(columnTag, variableType)                          \
+  "ZLlepton" columnTag, flattenVariable<variableType>,                         \
+      {"Lepton_" columnTag, "ZLCand_lepIdx"}
+
+#define DEFINE_SINGLE_VARIABLES(X)                                             \
   .Define(X("mass", Float_t))                                                  \
       .Define(X("pt", Float_t))                                                \
       .Define(X("eta", Float_t))                                               \
-      .Define(X("phi", Float_t))                                               \
-      .Define(X("Z1mass", Float_t))                                            \
+      .Define(X("phi", Float_t))
+
+#define DEFINE_ZZ_VARIABLES(X)                                                 \
+  .Define(X("Z1mass", Float_t))                                                \
       .Define(X("Z2mass", Float_t))                                            \
       .Define(X("costheta1", Float_t))                                         \
       .Define(X("costheta2", Float_t))                                         \
       .Define(X("costhetastar", Float_t))                                      \
       .Define(X("Phi", Float_t))                                               \
       .Define(X("Phi1", Float_t))
+
+#define DEFINE_VARIABLES(X) DEFINE_SINGLE_VARIABLES(X) DEFINE_ZZ_VARIABLES(X)
 
 template <bool hasCR>
 ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
@@ -192,7 +217,9 @@ ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
 
                 DEFINE_VARIABLES(CR2P2F_FLATTEN_VARIABLE)
                     DEFINE_VARIABLES(CR3P1F_FLATTEN_VARIABLE)
-                        DEFINE_VARIABLES(CRSS_FLATTEN_VARIABLE);
+                        DEFINE_VARIABLES(CRSS_FLATTEN_VARIABLE)
+                            DEFINE_SINGLE_VARIABLES(ZL_FLATTEN_VARIABLE)
+                                DEFINE_SINGLE_VARIABLES(LEP_FLATTEN_VARIABLE);
   }
 
   return df;
@@ -203,10 +230,11 @@ std::vector<HistogramModel>
 initializeHistogramModels(const std::string &sampleName) {
   std::vector<HistogramModel> models;
 
+  // Z+ll plots
   for (const auto &[unit, variables] : variablesPerUnit)
     for (const auto &variable : variables) {
       std::string xlabel = labelPerVariable.at(variable);
-      for (HistogramBinning binning : binGranularites.at(unit))
+      for (HistogramBinning binning : binGranularites.at(unit)) {
         for (FinalStateFlavor fsFlav : fsFlavors) {
           auto currModel = HistogramModel(/*isCR=*/false, variable, sampleName,
                                           xlabel, binning, unit, fsFlav);
@@ -215,6 +243,7 @@ initializeHistogramModels(const std::string &sampleName) {
               3);
           models.push_back(currModel);
 
+          // Z+X control region plots
           if constexpr (hasCR) {
             for (CRIdx crIdx : {P2F2, P3F1, SS}) {
               auto currModel =
@@ -229,8 +258,28 @@ initializeHistogramModels(const std::string &sampleName) {
             }
           }
         }
+      }
     }
 
+  // Z+l control region plots
+  if constexpr (hasCR) {
+    for (const auto &[unit, variables] : variablesPerUnitZL)
+      for (const auto &variable : variables) {
+        std::string xlabel = labelPerVariableZL.at(variable);
+        for (HistogramBinning binning : binGranularites.at(unit)) {
+          auto currModel = HistogramModel(
+              /*isCR=*/true, variable, sampleName, xlabel, binning, unit,
+              /*fsFlav=*/FinalStateFlavor::L4, /*crIdx=*/ZL);
+          LOG("[initializeHistogramModels]\t Created model: "
+                  << currModel.getModel().fTitle << " for the variable "
+                  << currModel.getVariable(),
+              3);
+          models.push_back(currModel);
+        }
+      }
+  }
+
+  // Final state flavor plots as a sanity check
   HistogramModel flavorPlot = HistogramModel(
       /*isCR=*/false,
       /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",

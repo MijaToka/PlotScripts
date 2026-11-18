@@ -21,9 +21,21 @@ class HistogramModel {
 
   void update() {
 
+    auto mkName = [this](const std::string &variablePrefix) {
+      return makeHistoName((variablePrefix + variable).c_str(),
+                           int(binning.getBinSize()), unit, sampleName.c_str(),
+                           fsFlav);
+    };
+
     weightColumn = "eventWeight";
+    name = mkName(getVariablePrefix(isCR_, crIdx));
     if (isCR_) {
-      addFilter(TString::Format("ZLLbest%sIdx>=0", CRNames.at(crIdx).c_str()));
+      if (crIdx != ZL) {
+        addFilter(
+            TString::Format("ZLLbest%sIdx>=0", CRNames.at(crIdx).c_str()));
+      } else {
+        addFilter(TString("ZLCand_lepIdx>=0"));
+      }
       weightColumn += "CR" + CRNames.at(crIdx);
     } else {
       addFilter("bestCandIdx>=0");
@@ -34,15 +46,18 @@ class HistogramModel {
             ? TString::Format("%02d", int(binning.getBinSize() * 100))
             : TString::Format("%i", int(binning.getBinSize()));
 
-    name = makeHistoName(
-        (isCR_ ? "ZLL" + CRNames.at(crIdx) + variable : "ZZ" + variable)
-            .c_str(),
-        int(binning.getBinSize()), unit, sampleName.c_str(), fsFlav);
-
     if (fsFlav != FinalStateFlavor::L4) {
-      TString flavorFilter = TString::Format(
-          "abs(%s%sFSflav)==%i", isCR_ ? "ZLL" : "ZZ",
-          isCR_ ? CRNames.at(crIdx).c_str() : "", static_cast<Int_t>(fsFlav));
+      TString flavorFilter("true");
+      if (isCR_) {
+        if (crIdx != ZL)
+          flavorFilter =
+              TString::Format("abs(%s%sFSflav)==%i", isCR_ ? "ZLL" : "ZZ",
+                              isCR_ ? CRNames.at(crIdx).c_str() : "",
+                              static_cast<Int_t>(fsFlav));
+      } else {
+        flavorFilter =
+            TString::Format("abs(ZZFSflav==%i)", static_cast<Int_t>(fsFlav));
+      }
       addFilter(flavorFilter);
 
       TString fsReplace =
@@ -88,9 +103,7 @@ public:
   std::string_view getFilter() { return filter; }
   ROOT::RDF::TH1DModel getModel() { return model; }
   std::string getVariable() {
-    std::string out =
-        isCR_ ? "ZLL" + CRNames.at(crIdx) + variable : "ZZ" + variable;
-    return out;
+    return getVariablePrefix(isCR_, crIdx) + variable;
   }
   std::string getWeight() { return weightColumn; }
 

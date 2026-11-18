@@ -18,6 +18,9 @@ const std::vector<HistogramBinning> higgsMassBinGranularities = {
 const std::vector<HistogramBinning> zMassBinGranularities = {
     HistogramBinning{.nBins = 35, .xlow = 50., .xhigh = 120},
 };
+const std::vector<HistogramBinning> leptonMassBinGranularities = {
+    HistogramBinning{.nBins = 35, .xlow = 0., .xhigh = 2},
+};
 const std::vector<HistogramBinning> ptBinGranularities = {
     HistogramBinning{.nBins = 70, .xlow = 0., .xhigh = 350},
 };
@@ -45,11 +48,12 @@ const std::map<std::string, std::string> labelPerVariable = {
     {"Phi1", "#Phi1_{#it{4l}}"},
 };
 
-enum unitIdx { m_H, m_Z, GeV_c, angle, cosAngle, eta, Idx };
+enum unitIdx { m_H, m_Z, m_l, GeV_c, angle, cosAngle, eta, Idx };
 const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
-    {m_H, higgsMassBinGranularities}, {m_Z, zMassBinGranularities},
-    {GeV_c, ptBinGranularities},      {angle, angleBinGranularities},
-    {cosAngle, cosBinGranularities},  {eta, etaBinGranularities},
+    {m_H, higgsMassBinGranularities},  {m_Z, zMassBinGranularities},
+    {GeV_c, ptBinGranularities},       {angle, angleBinGranularities},
+    {cosAngle, cosBinGranularities},   {eta, etaBinGranularities},
+    {m_l, leptonMassBinGranularities},
 };
 
 const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
@@ -60,18 +64,29 @@ const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
     {cosAngle, {"costheta1", "costheta2", "costhetastar"}},
     {eta, {"eta"}},
 };
+const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
+    {m_Z, {"mass", "leptonmass"}},
+    {GeV_c, {"pt", "leptonpt"}},
+    {angle, {"phi", "leptonphi"}},
+    {eta, {"eta", "leptoneta"}},
+};
 
-enum CRIdx { P2F2, P3F1, SS };
-const std::map<CRIdx, std::string> CRNames = {
-    {P2F2, "2P2F"},
-    {P3F1, "3P1F"},
-    {SS, "SS"},
+const std::map<std::string, std::string> labelPerVariableZL = {
+    {"mass", "m_{Z}"},
+    {"pt", "p_{T}^{Z}"},
+    {"eta", "#eta_{Z}"},
+    {"phi", "#phi_{Z}"},
+    {"leptonmass", "m_{#it{l}}"},
+    {"leptonpt", "p_{T}^{#it{l}}"},
+    {"leptoneta", "#eta_{#it{l}}"},
+    {"leptonphi", "#phi_{#it{l}}"},
 };
 
 std::string getUnitName(unitIdx unit) {
   switch (unit) {
   case m_H:
   case m_Z:
+  case m_l:
     return "GeV";
   case GeV_c:
     return "GeV/c";
@@ -92,4 +107,20 @@ std::string getUnitNameForTitle(unitIdx unit) {
   }
 }
 
+enum CRIdx { P2F2, P3F1, SS, ZL };
+const std::map<CRIdx, std::string> CRNames = {
+    {P2F2, "2P2F"},
+    {P3F1, "3P1F"},
+    {SS, "SS"},
+    {ZL, "ZL"},
+};
+std::string getVariablePrefix(bool isCR, CRIdx crIdx) {
+  if (isCR) {
+    if (crIdx == ZL) {
+      return "ZL";
+    }
+    return "ZLL" + CRNames.at(crIdx);
+  }
+  return "ZZ";
+}
 #endif
