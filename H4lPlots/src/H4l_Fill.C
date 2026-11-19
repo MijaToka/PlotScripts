@@ -419,7 +419,7 @@ void H4l_Fill(const std::vector<std::string> &years = {"2025"},
               char verboseLevel = 0) {
   logging::verbose = verboseLevel;
   ROOT::EnableThreadSafety();
-  // ROOT::EnableImplicitMT(2);
+  ROOT::EnableImplicitMT();
   for (std::string year : years) {
     runMC(year);
     runData(year);

@@ -56,7 +56,7 @@ class HistogramModel {
                               static_cast<Int_t>(fsFlav));
       } else {
         flavorFilter =
-            TString::Format("abs(ZZFSflav==%i)", static_cast<Int_t>(fsFlav));
+            TString::Format("abs(ZZFSflav)==%i", static_cast<Int_t>(fsFlav));
       }
       addFilter(flavorFilter);
 

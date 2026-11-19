@@ -65,7 +65,8 @@ const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
     {eta, {"eta"}},
 };
 const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
-    {m_Z, {"mass", "leptonmass"}},
+    {m_Z, {"mass"}},
+    {m_l, {"leptonmass"}},
     {GeV_c, {"pt", "leptonpt"}},
     {angle, {"phi", "leptonphi"}},
     {eta, {"eta", "leptoneta"}},
