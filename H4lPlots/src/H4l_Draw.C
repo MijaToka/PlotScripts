@@ -31,7 +31,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -296,28 +295,10 @@ getMCHistos(TFile *inFile, Float_t lumi, const char *variable,
 
 template <size_t N>
 THStack *stackHistograms(const std::array<TH1D *, N> &histograms,
-                         const char *variable, FinalStateFlavor fsFlav,
-                         int binning, unitIdx unit) {
+                         const char *variable, std::string xlabel,
+                         FinalStateFlavor fsFlav, int binning, unitIdx unit) {
 
   TString stackName = makeCanvasName(variable, binning, unit, fsFlav);
-
-  std::string xlabel;
-  LOG("[stackHistograms]\tCreating the xlabel of the canvas", 3);
-  if (labelPerVariable.find(variable) == labelPerVariable.end()) {
-    LOGERR("[stackHistograms]\tCould not find latex variable name for "
-               << variable << " using " << variable << " instead",
-           0);
-    xlabel = variable;
-  } else {
-    if (fsFlav != FinalStateFlavor::L4) {
-      TString xlabelPreformat = labelPerVariable.at(variable);
-      TString fsString =
-          TString(makeFSString(fsFlav).substr(1)).ReplaceAll("mu", "#mu");
-      xlabel = TString(xlabelPreformat.ReplaceAll("4l", fsString));
-    } else {
-      xlabel = labelPerVariable.at(variable);
-    }
-  }
 
   TString stackTitle;
   if (getUnitName(unit) == "")
@@ -564,8 +545,34 @@ template <bool isCR> auto selectIdx() {
   }
 }
 
-template <CRIdx... Idxs, class F> void forEachCR(F &&f) {
-  (f(std::integral_constant<CRIdx, Idxs>{}), ...);
+std::string makeXlabel(const char *variable, bool isCR,
+                       FinalStateFlavor fsFlav = FinalStateFlavor::L4,
+                       CRIdx crIdx = P2F2) {
+  std::string xlabel;
+  LOG("[makeXlabel]\tCreating the xlabel of the canvas", 3);
+  if (isCR && crIdx == ZL) {
+    if (labelPerVariableZL.find(variable) == labelPerVariableZL.end()) {
+      LOGERR("[makeXlabel]\tCould not find latex variable name for "
+                 << variable << " using " << variable << " instead",
+             0);
+      return variable;
+    }
+    return labelPerVariableZL.at(variable);
+  }
+
+  if (labelPerVariable.find(variable) == labelPerVariable.end()) {
+    LOGERR("[makeXlabel]\tCould not find latex variable name for "
+               << variable << " using " << variable << " instead",
+           0);
+    return variable;
+  }
+  if (fsFlav != FinalStateFlavor::L4) {
+    TString xlabelPreformat = labelPerVariable.at(variable);
+    TString fsString =
+        TString(makeFSString(fsFlav).substr(1)).ReplaceAll("mu", "#mu");
+    return TString(xlabelPreformat.ReplaceAll("4l", fsString)).Data();
+  }
+  return labelPerVariable.at(variable);
 }
 
 template <typename T, size_t N>
@@ -645,12 +652,14 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
   THStack *stack;
 
   if (!isCR && fullVariableName == "ZZmass")
-    stack = stackHistograms(MCHistograms, fullVariableName.c_str(), fsFlav,
+    stack = stackHistograms(MCHistograms, fullVariableName.c_str(),
+                            makeXlabel(variable, isCR, fsFlav, crIdx), fsFlav,
                             binning, unit);
   else
     // Drop ZX
-    stack = stackHistograms(drop_elem(MCHistograms, MCSRHistoIdx::ZXIdx),
-                            fullVariableName.c_str(), fsFlav, binning, unit);
+    stack = stackHistograms(
+        drop_elem(MCHistograms, MCSRHistoIdx::ZXIdx), fullVariableName.c_str(),
+        makeXlabel(variable, isCR, fsFlav, crIdx), fsFlav, binning, unit);
 
   LOG("[writePlot]\tTransforming data histograms to a graph", 1);
   TGraphAsymmErrors *data =
@@ -662,6 +671,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
 
   outFile->cd(outDir.c_str());
   canvas->Write();
+  delete canvas;
 }
 
 void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
