@@ -10,25 +10,16 @@
 #include "PlotScripts/H4lPlots/src/Variables.C"
 
 class HistogramModel {
-  ROOT::RDF::TH1DModel model;
-  std::string variable, weightColumn, xlabel, sampleName, filter, name;
-  unitIdx unit;
-  HistogramBinning binning;
-  FinalStateFlavor fsFlav = FinalStateFlavor::L4;
   bool hasFilter_ = false;
   bool isCR_;
+  unitIdx unit;
   CRIdx crIdx;
+  FinalStateFlavor fsFlav = FinalStateFlavor::L4;
+  HistogramBinning binning;
+  std::string variable, xlabel, sampleName, filter;
+  std::string filterNameSuffix = "";
 
-  void update() {
-
-    auto mkName = [this](const std::string &variablePrefix) {
-      return makeHistoName((variablePrefix + variable).c_str(),
-                           int(binning.getBinSize()), unit, sampleName.c_str(),
-                           fsFlav);
-    };
-
-    weightColumn = "eventWeight";
-    name = mkName(getVariablePrefix(isCR_, crIdx));
+  void addCandidateFilter() {
     if (isCR_) {
       if (crIdx != ZL) {
         addFilter(
@@ -36,48 +27,41 @@ class HistogramModel {
       } else {
         addFilter(TString("ZLCand_lepIdx>=0"));
       }
-      weightColumn += "CR" + CRNames.at(crIdx);
     } else {
       addFilter("bestCandIdx>=0");
     }
-
-    TString binSizeLabel =
-        binning.getBinSize() < 1
-            ? TString::Format("%02d", int(binning.getBinSize() * 100))
-            : TString::Format("%i", int(binning.getBinSize()));
-
+  }
+  void applyFSFlavorFilter() {
+    if (fsFlav == FinalStateFlavor::L4)
+      return;
+    if (!isCR_ || crIdx == ZL) {
+      addFilter(TString::Format("abs(%sFSflav)==%i", isCR_ ? "ZL" : "ZZ",
+                                static_cast<Int_t>(fsFlav)));
+      return;
+    }
+    if (crIdx == ZL) {
+      addFilter(
+          TString::Format("abs(ZLFSflav)==%i", static_cast<Int_t>(fsFlav)));
+      return;
+    }
+    addFilter(TString::Format("abs(ZLL%sFSflav)==%i", CRNames.at(crIdx).c_str(),
+                              static_cast<Int_t>(fsFlav)));
+    return;
+  }
+  void initializeXlabel() {
     if (fsFlav != FinalStateFlavor::L4) {
-      TString flavorFilter("true");
-      if (isCR_) {
-        if (crIdx != ZL)
-          flavorFilter =
-              TString::Format("abs(%s%sFSflav)==%i", isCR_ ? "ZLL" : "ZZ",
-                              isCR_ ? CRNames.at(crIdx).c_str() : "",
-                              static_cast<Int_t>(fsFlav));
-      } else {
-        flavorFilter =
-            TString::Format("abs(ZZFSflav)==%i", static_cast<Int_t>(fsFlav));
-      }
-      addFilter(flavorFilter);
-
       TString fsReplace =
           TString(makeFSString(fsFlav).substr(1)).ReplaceAll("mu", "#mu");
       xlabel = TString(xlabel).ReplaceAll("4l", fsReplace);
       std::string unitName = getUnitName(unit);
       xlabel += (unitName == "") ? "" : " [" + unitName + "]";
     }
+  }
 
-    TString title;
-    std::string unitName = getUnitName(unit);
-    if (unitName == "")
-      title = TString::Format("%s;%s;Events", name.c_str(), xlabel.c_str());
-    else
-      title =
-          TString::Format("%s;%s;Events / %i %s", name.c_str(), xlabel.c_str(),
-                          int(binning.getBinSize()), unitName.c_str());
-
-    model = ROOT::RDF::TH1DModel(name.c_str(), title, binning.nBins,
-                                 binning.xlow, binning.xhigh);
+  void initialize() {
+    addCandidateFilter();
+    applyFSFlavorFilter();
+    initializeXlabel();
   }
 
 public:
@@ -88,8 +72,19 @@ public:
       : variable(variable), xlabel(xlabel), sampleName(sampleName),
         binning(binning), fsFlav(fsFlav), unit(unit), isCR_(isCR),
         crIdx(crIdx) {
-    update();
+    initialize();
   }
+
+  std::string getName() {
+    auto mkName = [this](const std::string &variablePrefix) {
+      return makeHistoName((variablePrefix + variable).c_str(),
+                           int(binning.getBinSize()), unit, sampleName.c_str(),
+                           fsFlav);
+    };
+    return mkName(getVariablePrefix(isCR_, crIdx)).Data() + filterNameSuffix;
+  }
+
+  std::string getXlabel() { return xlabel; }
 
   void addFilter(TString newFilter) {
     if (!hasFilter_) {
@@ -98,14 +93,47 @@ public:
       filter += "&&" + newFilter;
     }
   }
+  void addFilter(TString filter, std::string filterSuffix) {
+    addFilter(filter);
+    filterNameSuffix += filterSuffix;
+  }
+
+  void resetFilter() {
+    filter = "";
+    hasFilter_ = false;
+  }
 
   HistogramBinning getBinning() { return binning; }
+
   std::string_view getFilter() { return filter; }
-  ROOT::RDF::TH1DModel getModel() { return model; }
+
+  ROOT::RDF::TH1DModel getModel() {
+    std::string name = getName();
+    TString title;
+    std::string unitName = getUnitName(unit);
+    if (unitName == "")
+      title = TString::Format("%s;%s;Events", name.c_str(), xlabel.c_str());
+    else
+      title =
+          TString::Format("%s;%s;Events / %i %s", name.c_str(), xlabel.c_str(),
+                          int(binning.getBinSize()), unitName.c_str());
+    return ROOT::RDF::TH1DModel(name.c_str(), title, binning.nBins,
+                                binning.xlow, binning.xhigh);
+  }
+
   std::string getVariable() {
     return getVariablePrefix(isCR_, crIdx) + variable;
   }
-  std::string getWeight() { return weightColumn; }
+
+  std::string getWeight() {
+    std::string weightColumn = "eventWeight";
+    if (isCR_) {
+      weightColumn += "CR" + CRNames.at(crIdx);
+      if (crIdx == ZL && variable.rfind("lepton", 0) != std::string::npos)
+        weightColumn += "lepton";
+    }
+    return weightColumn;
+  }
 
   bool hasFilter() { return hasFilter_; }
   bool isCR() { return isCR_; }
