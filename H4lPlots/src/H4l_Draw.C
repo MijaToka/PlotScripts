@@ -593,6 +593,15 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
 
   Int_t canvasXSize(1200), canvasYSize(900);
 
+  std::string outDir;
+  if constexpr (isCR) {
+    outDir = "/CR" + CRNames.at(crIdx);
+  } else {
+    outDir = "/SR";
+  }
+
+  outFile->cd(outDir.c_str());
+
   TCanvas *canvas =
       new TCanvas(canvasName, canvasName, canvasXSize, canvasYSize);
 
@@ -651,7 +660,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
   drawPlots<isCR>(canvas, stack, MCHistograms, data, fullVariableName.c_str(),
                   isBlinded);
 
-  outFile->cd();
+  outFile->cd(outDir.c_str());
   canvas->Write();
 }
 
@@ -697,6 +706,11 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
   TFile *outFile = TFile::Open(outPath.c_str(), "RECREATE");
 
   outFile->cd(); // To associate the canvas ptrs here
+  outFile->mkdir("SR");
+  outFile->mkdir("CR2P2F");
+  outFile->mkdir("CR3P1F");
+  outFile->mkdir("CRSS");
+  outFile->mkdir("CRZL");
 
   for (const auto &[unit, variables] : variablesPerUnit) {
     std::string unitName = getUnitName(unit);
@@ -730,6 +744,7 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
     }
 
   LOG("[H4l_Draw]\tClosing file " << outPath, 0);
+  outFile->cd();
   outFile->Close();
   return;
 }
