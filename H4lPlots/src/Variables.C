@@ -1,5 +1,9 @@
 #ifndef VARIABLES
 #define VARIABLES
+#include <ROOT/RDF/InterfaceUtils.hxx>
+#include <ROOT/RDFHelpers.hxx>
+#include <ROOT/RDataFrame.hxx>
+#include <ROOT/RVec.hxx>
 #include <TMath.h>
 #include <map>
 #include <string>
@@ -82,6 +86,92 @@ const std::map<std::string, std::string> labelPerVariableZL = {
     {"leptoneta", "#eta_{#it{l}}"},
     {"leptonphi", "#phi_{#it{l}}"},
 };
+
+template <typename T>
+inline T flattenVariable(const ROOT::VecOps::RVec<T> &Cand, Short_t bestIdx) {
+  return bestIdx >= 0 ? Cand[bestIdx] : -999.;
+}
+
+#define SR_FLATTEN_VARIABLE(columnTag, variableType)                           \
+  "ZZ" columnTag, flattenVariable<variableType>,                               \
+      {"ZZCand_" columnTag, "bestCandIdx"}
+
+#define CR_FLATTEN_VARIABLE(columnTag, variableType, region)                   \
+  "ZLL" region columnTag, flattenVariable<variableType>,                       \
+      {"ZLLCand_" columnTag, "ZLLbest" region "Idx"}
+
+#define CR2P2F_FLATTEN_VARIABLE(columnTag, variableType)                       \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "2P2F")
+
+#define CR3P1F_FLATTEN_VARIABLE(columnTag, variableType)                       \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "3P1F")
+
+#define CRSS_FLATTEN_VARIABLE(columnTag, variableType)                         \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "SS")
+
+#define ZL_FLATTEN_VARIABLE(columnTag, variableType)                           \
+  "ZL" columnTag, flattenVariable<variableType>,                               \
+      {"ZCand_" columnTag, "bestZIdx"}
+
+#define LEP_FLATTEN_VARIABLE(columnTag, variableType)                          \
+  "ZLlepton" columnTag, flattenVariable<variableType>,                         \
+      {"Lepton_" columnTag, "ZLCand_lepIdx"}
+
+#define DEFINE_SINGLE_VARIABLES(X)                                             \
+  .Define(X("mass", Float_t))                                                  \
+      .Define(X("pt", Float_t))                                                \
+      .Define(X("eta", Float_t))                                               \
+      .Define(X("phi", Float_t))
+
+#define DEFINE_ZZ_VARIABLES(X)                                                 \
+  .Define(X("Z1mass", Float_t))                                                \
+      .Define(X("Z2mass", Float_t))                                            \
+      .Define(X("costheta1", Float_t))                                         \
+      .Define(X("costheta2", Float_t))                                         \
+      .Define(X("costhetastar", Float_t))                                      \
+      .Define(X("Phi", Float_t))                                               \
+      .Define(X("Phi1", Float_t))
+
+#define DEFINE_VARIABLES(X) DEFINE_SINGLE_VARIABLES(X) DEFINE_ZZ_VARIABLES(X)
+
+template <bool hasCR>
+ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
+  df = df.Define("ZZFSflav",
+                 [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                   return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                 },
+                 {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"})
+           DEFINE_VARIABLES(SR_FLATTEN_VARIABLE);
+
+  if constexpr (hasCR) {
+    df =
+        df.Define("ZLL2P2FFSflav",
+                  [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                    return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                  },
+                  {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest2P2FIdx"})
+            .Define(
+                "ZLL3P1FFSflav",
+                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                },
+                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest3P1FIdx"})
+            .Define(
+                "ZLLSSFSflav",
+                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                },
+                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbestSSIdx"})
+
+                DEFINE_VARIABLES(CR2P2F_FLATTEN_VARIABLE)
+                    DEFINE_VARIABLES(CR3P1F_FLATTEN_VARIABLE)
+                        DEFINE_VARIABLES(CRSS_FLATTEN_VARIABLE)
+                            DEFINE_SINGLE_VARIABLES(ZL_FLATTEN_VARIABLE)
+                                DEFINE_SINGLE_VARIABLES(LEP_FLATTEN_VARIABLE);
+  }
+
+  return df;
+}
 
 std::string getUnitName(unitIdx unit) {
   switch (unit) {
