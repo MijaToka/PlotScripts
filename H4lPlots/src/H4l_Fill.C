@@ -91,7 +91,8 @@ ROOT::RDF::RNode initializeRDF(const std::vector<std::string> &files) {
     df = df.Define("eventWeightCR2P2F", []() { return 1.; }, {})
              .Define("eventWeightCR3P1F", []() { return 1.; }, {})
              .Define("eventWeightCRSS", []() { return 1.; }, {})
-             .Define("eventWeightCRZL", []() { return 1.; }, {});
+             .Define("eventWeightCRZL", []() { return 1.; }, {})
+             .Define("eventWeightCRZLlepton", []() { return 1.; }, {});
   }
   return df;
 }
@@ -216,14 +217,16 @@ initializeHistogramModels(const std::string &sampleName) {
       for (const auto &variable : variables) {
         std::string xlabel = labelPerVariableZL.at(variable);
         for (HistogramBinning binning : binGranularites.at(unit)) {
-          auto currModel = HistogramModel(
-              /*isCR=*/true, variable, sampleName, xlabel, binning, unit,
-              /*fsFlav=*/FinalStateFlavor::L4, /*crIdx=*/ZL);
-          LOG("[initializeHistogramModels]\t Created model: "
-                  << currModel.getModel().fTitle << " for the variable "
-                  << currModel.getVariable(),
-              3);
-          models.push_back(currModel);
+          for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+            auto currModel = HistogramModel(
+                /*isCR=*/true, variable, sampleName, xlabel, binning, unit,
+                fsFlav, /*crIdx=*/ZL);
+            LOG("[initializeHistogramModels]\t Created model: "
+                    << currModel.getModel().fTitle << " for the variable "
+                    << currModel.getVariable(),
+                3);
+            models.push_back(currModel);
+          }
         }
       }
   }

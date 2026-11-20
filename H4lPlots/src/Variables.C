@@ -4,6 +4,7 @@
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RDataFrame.hxx>
 #include <ROOT/RVec.hxx>
+#include <RtypesCore.h>
 #include <TMath.h>
 #include <map>
 #include <string>
@@ -162,6 +163,14 @@ ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
                   return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
                 },
                 {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbestSSIdx"})
+            .Define("ZLFSflav",
+                    [](ROOT::RVecI ZFlav, ROOT::RVecI LepFlav, Short_t bestZIdx,
+                       Short_t bestZLIdx) {
+                      return bestZLIdx >= 0
+                                 ? ZFlav[bestZIdx] * LepFlav[bestZLIdx]
+                                 : 0.;
+                    },
+                    {"ZCand_flav", "Lepton_pdgId", "bestZIdx", "ZLCand_lepIdx"})
 
                 DEFINE_VARIABLES(CR2P2F_FLATTEN_VARIABLE)
                     DEFINE_VARIABLES(CR3P1F_FLATTEN_VARIABLE)

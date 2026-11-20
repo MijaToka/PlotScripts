@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <experimental/bits/simd.h>
 #include <filesystem>
 #include <map>
 #include <sstream>
@@ -111,11 +112,6 @@ TH1D *getZX(TH1D *model, FinalStateFlavor fsFlav) {
 
   TH1D *outHisto;
   switch (fsFlav) {
-  case FinalStateFlavor::L4:
-    outHisto = (TH1D *)histo4e->Clone("ZX_tot");
-    outHisto->Add(histo4mu);
-    outHisto->Add(histo2e2mu);
-    break;
   case FinalStateFlavor::E4:
     outHisto = histo4e;
     break;
@@ -124,6 +120,12 @@ TH1D *getZX(TH1D *model, FinalStateFlavor fsFlav) {
     break;
   case FinalStateFlavor::E2Mu2:
     outHisto = histo2e2mu;
+    break;
+  case FinalStateFlavor::L4:
+  default:
+    outHisto = (TH1D *)histo4e->Clone("ZX_tot");
+    outHisto->Add(histo4mu);
+    outHisto->Add(histo2e2mu);
     break;
   }
 
@@ -213,6 +215,8 @@ std::array<TH1D *, N_SR_HISTOS> getMCHistosSR(TFile *inFile, Float_t lumi,
   TH1D *TT = mkHistoSum("ttTo", MC_BkgTT);
   TT->Scale(lumi * 1000.);
 
+  // TODO: make the ZX plots according to reality for all variables
+  //       not the toy I'm using
   TH1D *ZX = getZX(ZZTo4l, fsFlav);
   ZX->Scale(lumi * 1000.);
   ZX->SetLineColor(TColor::GetColor(0, 51, 0));
@@ -747,9 +751,11 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
     for (const auto &variable : variables) {
       std::string xlabel = labelPerVariableZL.at(variable);
       for (HistogramBinning binning : binGranularites.at(unit)) {
-        writePlot</*isCR=*/true, ZL>(
-            outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
-            FinalStateFlavor::L4, int(binning.getBinSize()), unit, isBlinded);
+        for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+          writePlot</*isCR=*/true, ZL>(
+              outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
+              fsFlav, int(binning.getBinSize()), unit, isBlinded);
+        }
       }
     }
 

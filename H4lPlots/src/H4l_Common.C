@@ -10,23 +10,27 @@
 #include "PlotScripts/H4lPlots/src/Variables.C"
 
 inline std::string makeFSString(FinalStateFlavor fsFlav) {
-
-  std::string fsString("");
   switch (fsFlav) {
   case FinalStateFlavor::E4:
-    fsString = "_4e";
-    break;
+    return "_4e";
   case FinalStateFlavor::E2Mu2:
-    fsString = "_2e2mu";
-    break;
+    return "_2e2mu";
   case FinalStateFlavor::Mu4:
-    fsString = "_4mu";
-    break;
+    return "_4mu";
+
+  // Z+l
+  case FinalStateFlavor::E3:
+    return "_3e";
+  case FinalStateFlavor::E2Mu1:
+    return "_2e1mu";
+  case FinalStateFlavor::Mu2E1:
+    return "_2mu1e";
+  case FinalStateFlavor::Mu3:
+    return "_3mu";
+  // Inclusive
   case FinalStateFlavor::L4:
-  default:
-    break;
+    return "";
   }
-  return fsString;
 }
 
 inline TString makeHistoName(const char *variable, int energyBinning,
