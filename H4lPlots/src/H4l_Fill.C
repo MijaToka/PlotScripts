@@ -21,6 +21,7 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <sys/types.h>
 #include <vector>
 
 #pragma cling add_include_path(                                                \
@@ -122,18 +123,52 @@ ROOT::RDF::RNode calculateEventWeight(Float_t genEventSumw,
              .Redefine(
                  "eventWeightCRSS", calculateWeight,
                  {"overallEventWeight", "ZLLCand_dataMCWeight", "ZLLbestSSIdx"})
-             .Redefine("eventWeightCRZL",
-                       [genEventSumw](
-                           Float_t overallWeight, ROOT::RVecF dataMCWeight,
-                           Short_t bestZIdx, Short_t bestZLIdx) -> Float_t {
-                         if (genEventSumw == 0 || bestZLIdx == -1) {
+             .Redefine(
+                 "eventWeightCRZL",
+                 [genEventSumw](
+                     Float_t overallWeight, ROOT::RVecF ElectronWeights,
+                     ROOT::RVecF MuonWeights, int nElectron, Short_t bestZIdx,
+                     Short_t bestZLIdx, ROOT::VecOps::RVec<Short_t> l1Idxs,
+                     ROOT::VecOps::RVec<Short_t> l2Idxs) -> Float_t {
+                   if (genEventSumw == 0 || bestZLIdx == -1) {
+                     return 0;
+                   } else {
+                     Float_t dataMCWeight(1);
+                     for (Short_t lIdx : {l1Idxs[bestZIdx], l2Idxs[bestZIdx]}) {
+                       if (lIdx < 0)
+                         continue;
+
+                       if (lIdx < nElectron) {
+                         dataMCWeight *= ElectronWeights[lIdx];
+                       } else {
+                         dataMCWeight *= MuonWeights[lIdx - nElectron];
+                       }
+                     }
+
+                     return overallWeight * dataMCWeight / genEventSumw;
+                   }
+                 },
+                 {"overallEventWeight", "Electron_dataMC", "Muon_dataMC",
+                  "nElectron", "bestZIdx", "ZLCand_lepIdx", "ZCand_l1Idx",
+                  "ZCand_l2Idx"})
+             .Redefine("eventWeightCRZLlepton",
+                       [genEventSumw](Float_t overallWeight,
+                                      ROOT::RVecF ElectronWeights,
+                                      ROOT::RVecF MuonWeights, int nElectron,
+                                      Short_t bestZLIdx) -> Float_t {
+                         if (genEventSumw == 0 || bestZLIdx == -1)
                            return 0;
-                         } else {
-                           return overallWeight / genEventSumw;
-                         }
+
+                         if (bestZLIdx < nElectron)
+                           return overallWeight * ElectronWeights[bestZLIdx] /
+                                  genEventSumw;
+
+                         return overallWeight *
+                                MuonWeights[bestZLIdx - nElectron] /
+                                genEventSumw;
                        },
-                       {"overallEventWeight", "ZZCand_dataMCWeight", "bestZIdx",
-                        "ZLCand_lepIdx"});
+                       {"overallEventWeight", "Electron_dataMC", "Muon_dataMC",
+                        "nElectron", "ZLCand_lepIdx"});
   }
 
   return df;
