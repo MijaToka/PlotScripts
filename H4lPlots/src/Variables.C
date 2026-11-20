@@ -24,7 +24,7 @@ const std::vector<HistogramBinning> zMassBinGranularities = {
     HistogramBinning{.nBins = 35, .xlow = 50., .xhigh = 120},
 };
 const std::vector<HistogramBinning> leptonMassBinGranularities = {
-    HistogramBinning{.nBins = 35, .xlow = 0., .xhigh = 2},
+    HistogramBinning{.nBins = 35, .xlow = 0., .xhigh = 0.2},
 };
 const std::vector<HistogramBinning> ptBinGranularities = {
     HistogramBinning{.nBins = 70, .xlow = 0., .xhigh = 350},

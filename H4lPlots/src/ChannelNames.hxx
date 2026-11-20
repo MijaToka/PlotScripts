@@ -125,7 +125,7 @@ constexpr FinalStateFlavor fsFlavors[] = {
     FinalStateFlavor::Mu4};
 
 constexpr FinalStateFlavor fsFlavorsZL[] = {
-    FinalStateFlavor::L4, FinalStateFlavor::E2Mu1, FinalStateFlavor::Mu2E1,
-    FinalStateFlavor::Mu3};
+    FinalStateFlavor::L4, FinalStateFlavor::E3, FinalStateFlavor::E2Mu1,
+    FinalStateFlavor::Mu2E1, FinalStateFlavor::Mu3};
 
 #endif
