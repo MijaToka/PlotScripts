@@ -91,9 +91,7 @@ ROOT::RDF::RNode initializeRDF(const std::vector<std::string> &files) {
     df = df.Define("eventWeightCR2P2F", []() { return 1.; }, {})
              .Define("eventWeightCR3P1F", []() { return 1.; }, {})
              .Define("eventWeightCRSS", []() { return 1.; }, {})
-             .Define("eventWeightCRZL", []() { return 1.; }, {})
-             .Define("eventWeightCRZLlepton", []() { return 1.; }, {})
-             .Define("eventWeightCRZLFull", []() { return 1.; }, {});
+             .Define("eventWeightCRZL", []() { return 1.; }, {});
   }
   return df;
 }
@@ -152,37 +150,7 @@ ROOT::RDF::RNode calculateEventWeight(Float_t genEventSumw,
                  },
                  {"overallEventWeight", "Electron_dataMC", "Muon_dataMC",
                   "nElectron", "bestZIdx", "ZLCand_lepIdx", "ZCand_l1Idx",
-                  "ZCand_l2Idx"})
-             .Redefine("eventWeightCRZLlepton",
-                       [genEventSumw](Float_t overallWeight,
-                                      ROOT::RVecF ElectronWeights,
-                                      ROOT::RVecF MuonWeights, int nElectron,
-                                      Short_t bestZLIdx) -> Float_t {
-                         if (genEventSumw == 0 || bestZLIdx == -1)
-                           return 0;
-
-                         if (bestZLIdx < nElectron)
-                           return overallWeight * ElectronWeights[bestZLIdx] /
-                                  genEventSumw;
-
-                         return overallWeight *
-                                MuonWeights[bestZLIdx - nElectron] /
-                                genEventSumw;
-                       },
-                       {"overallEventWeight", "Electron_dataMC", "Muon_dataMC",
-                        "nElectron", "ZLCand_lepIdx"})
-             .Redefine("eventWeightCRZLFull",
-                       [](Float_t Zweight, ROOT::RVecF ElectronWeights,
-                          ROOT::RVecF MuonWeights, int nElectron,
-                          Short_t bestZLIdx) -> Float_t {
-                         if (bestZLIdx == -1)
-                           return 0;
-                         if (bestZLIdx < nElectron)
-                           return Zweight * ElectronWeights[bestZLIdx];
-                         return Zweight * MuonWeights[bestZLIdx - nElectron];
-                       },
-                       {"eventWeightCRZL", "Electron_dataMC", "Muon_dataMC",
-                        "nElectron", "ZLCand_lepIdx"});
+                  "ZCand_l2Idx"});
   }
 
   return df;
@@ -247,7 +215,6 @@ initializeHistogramModels(const std::string &sampleName) {
           HistogramModel(/*isCR=*/true, "ETmiss", sampleName, "E_{T}^{miss}",
                          HistogramBinning{.nBins = 50, .xlow = 0, .xhigh = 100},
                          m_l, fsFlav, /*crIdx=*/ZL);
-      currModel.setWeight("eventWeightCRZLFull");
       models.push_back(currModel);
     }
   }

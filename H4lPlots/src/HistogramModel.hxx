@@ -134,8 +134,6 @@ public:
     std::string weightColumnSuffix = "";
     if (isCR_) {
       weightColumnSuffix += "CR" + CRNames.at(crIdx);
-      if (crIdx == ZL && variable.rfind("lepton", 0) != std::string::npos)
-        weightColumnSuffix += "lepton";
     }
     return weightColumn + weightColumnSuffix;
   }
