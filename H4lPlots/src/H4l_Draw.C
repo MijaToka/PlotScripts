@@ -138,10 +138,8 @@ TH1D *getZX(TH1D *model, FinalStateFlavor fsFlav) {
   return outHisto;
 }
 
-template <size_t N>
 TH1D *agregateHistogram(TFile *file, const char *variable, int binning,
-                        unitIdx unit,
-                        const std::array<const char *, N> &samples,
+                        unitIdx unit, const View<const char *> &samples,
                         const std::string &sampleBundleName,
                         FinalStateFlavor fsFlav) {
 
@@ -187,8 +185,9 @@ std::array<TH1D *, N_SR_HISTOS> getMCHistosSR(TFile *inFile, Float_t lumi,
         .Data();
   };
 
-  auto mkHistoSum = [inFile, variable, binning, unit, fsFlav, mkBundleName](
-                        const std::string &sampleName, const auto &dataSet) {
+  auto mkHistoSum = [inFile, variable, binning, unit, fsFlav,
+                     mkBundleName](const std::string &sampleName,
+                                   const View<const char *> &dataSet) {
     return agregateHistogram(inFile, variable, binning, unit, dataSet,
                              mkBundleName(sampleName), fsFlav);
   };
@@ -529,6 +528,8 @@ void assertPeriod(const std::string &period) {
          "H4lFill_MC file path not configured for current period");
   assert(DATA_FILL_FILES.find(period) != DATA_FILL_FILES.end() &&
          "H4lFill_Data fill path not configured for current period");
+  assert(periodIndex.find(period) != periodIndex.end() &&
+         "Data period not configured");
 }
 
 template <bool isMC> constexpr auto selectFillFiles() {
@@ -653,7 +654,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
 
       dataHisto = agregateHistogram(
           inDataFiles[period], fullVariableName.c_str(), binning, unit,
-          Data_dataSets2025,
+          Data_dataSets[periodIndex.at(period)],
           TString::Format("Data_histogram%s", period.c_str()).Data(), fsFlav);
       firstPeriod = !firstPeriod;
     } else {
@@ -665,7 +666,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
 
       dataHisto->Add(agregateHistogram(
           inDataFiles[period], fullVariableName.c_str(), binning, unit,
-          Data_dataSets2025,
+          Data_dataSets[periodIndex.at(period)],
           TString::Format("Data_histogram%s", period.c_str()).Data(), fsFlav));
     }
   }

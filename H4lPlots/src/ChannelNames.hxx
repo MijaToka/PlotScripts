@@ -3,6 +3,8 @@
 
 #include <array>
 #include <cstddef>
+#include <map>
+#include <string>
 
 template <typename T, size_t LLen, size_t RLen>
 constexpr std::array<T, LLen + RLen> concat(const std::array<T, LLen> &a,
@@ -23,6 +25,27 @@ constexpr auto concatAll(const A &a, const B &b, const Rest &...rest) {
     return concatAll(concat(a, b), rest...);
 }
 
+template <typename T> struct View {
+  const T *data;
+  size_t n;
+
+  constexpr View(const T *data, size_t n) : data(data), n(n) {}
+  template <size_t N>
+  constexpr View(const std::array<T, N> &arr) : data(arr.data()), n(N) {}
+  template <size_t N> constexpr View(const std::array<T, N> &&) = delete;
+
+  constexpr const T *begin() const { return data; }
+  constexpr const T *end() const { return data + n; }
+  constexpr const T &operator[](size_t i) const { return data[i]; }
+  constexpr size_t size() const { return n; }
+};
+
+template <typename T, size_t N>
+constexpr View<T> arrayToView(const std::array<T, N> &arr) {
+  return {arr.data(), N};
+}
+
+// MC
 constexpr std::array<const char *, 6> MC_SignalH124 = {
     "ggH124", "VBFH124", "WplusH124", "WminusH124", "ZH124", "ttH124"};
 
@@ -55,10 +78,12 @@ constexpr std::array<const char *, 2> MC_BkgDY = {"DYJetsTo2E", "DYJetsTo2Mu"};
 constexpr std::array<const char *, 2> MC_BkgTT = {"TTWW", "TTZZ"};
 constexpr std::array<const char *, 1> MC_BkgTTTo = {"TTto2L2Nu"};
 
-constexpr std::array<const char *, 46> MC_dataSets =
+constexpr std::array<const char *, 46> MC_dataSetsFullH125 =
     concatAll(MC_SignalH124, MC_SignalH124p5, MC_SignalH125, MC_SignalH125p5,
               MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
               MC_BkgTT, MC_BkgTTTo);
+
+constexpr View MC_dataSets(MC_dataSetsFullH125);
 
 constexpr std::array<const char *, 22> MC_dataSetsH124 =
     concatAll(MC_SignalH124, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
@@ -84,6 +109,7 @@ constexpr std::array<const char *, 11> MC_ControlRegion =
     concatAll(MC_BkgDY, MC_BkgGGTo, MC_BkgTTTo,
               std::array<const char *, 1>{"WZto3LNu"}, MC_BkgQQZZ);
 
+// Data
 constexpr std::array<const char *, 32> Data_EGamma2025 = {
     "EGamma02025Bv1", "EGamma02025Cv1", "EGamma02025Cv2", "EGamma02025Dv1",
     "EGamma02025Ev1", "EGamma12025Bv1", "EGamma02025Fv1", "EGamma02025Fv2",
@@ -108,6 +134,35 @@ constexpr std::array<const char *, 8> Data_MuonEG2025 = {
 
 const std::array<const char *, 56> Data_dataSets2025 =
     concatAll(Data_EGamma2025, Data_Muon2025, Data_MuonEG2025);
+
+constexpr std::array<const char *, 16> Data_EGamma2024 = {
+    "EGamma02024Cv1", "EGamma02024Dv1", "EGamma02024Ev1", "EGamma02024Fv1",
+    "EGamma02024Gv2", "EGamma02024Hv2", "EGamma02024Iv1", "EGamma02024Iv2",
+    "EGamma12024Cv1", "EGamma12024Dv1", "EGamma12024Ev1", "EGamma12024Fv1",
+    "EGamma12024Gv2", "EGamma12024Hv1", "EGamma12024Iv1", "EGamma12024Iv2",
+};
+
+constexpr std::array<const char *, 16> Data_Muon2024 = {
+    "Muon02024Cv1", "Muon02024Dv1", "Muon02024Ev1", "Muon02024Fv1",
+    "Muon02024Gv1", "Muon02024Hv1", "Muon02024Iv1", "Muon02024Iv2",
+    "Muon12024Cv1", "Muon12024Dv1", "Muon12024Ev1", "Muon12024Fv1",
+    "Muon12024Gv2", "Muon12024Hv2", "Muon12024Iv1", "Muon12024Iv2",
+};
+
+constexpr std::array<const char *, 8> Data_MuonEG2024 = {
+    "MuonEG2024Cv1", "MuonEG2024Dv1", "MuonEG2024Ev1", "MuonEG2024Fv2",
+    "MuonEG2024Gv3", "MuonEG2024Hv2", "MuonEG2024Iv2", "MuonEG2024Iv2v2",
+};
+constexpr std::array<const char *, 40> Data_dataSets2024 =
+    concatAll(Data_EGamma2024, Data_Muon2024, Data_MuonEG2024);
+
+constexpr std::array<View<const char *>, 2> Data_dataSets{Data_dataSets2024,
+                                                          Data_dataSets2025};
+
+enum dataPeriod { y2024, y2025 };
+
+const std::map<std::string, dataPeriod> periodIndex = {{"2024", y2024},
+                                                       {"2025", y2025}};
 
 enum class FinalStateFlavor {
   L4,
