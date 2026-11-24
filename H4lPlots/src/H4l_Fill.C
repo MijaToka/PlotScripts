@@ -21,6 +21,7 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <sys/types.h>
 #include <vector>
 
 #pragma cling add_include_path(                                                \
@@ -90,7 +91,9 @@ ROOT::RDF::RNode initializeRDF(const std::vector<std::string> &files) {
     df = df.Define("eventWeightCR2P2F", []() { return 1.; }, {})
              .Define("eventWeightCR3P1F", []() { return 1.; }, {})
              .Define("eventWeightCRSS", []() { return 1.; }, {})
-             .Define("eventWeightCRZL", []() { return 1.; }, {});
+             .Define("eventWeightCRZL", []() { return 1.; }, {})
+             .Define("eventWeightCRZLlepton", []() { return 1.; }, {})
+             .Define("eventWeightCRZLFull", []() { return 1.; }, {});
   }
   return df;
 }
@@ -122,104 +125,64 @@ ROOT::RDF::RNode calculateEventWeight(Float_t genEventSumw,
              .Redefine(
                  "eventWeightCRSS", calculateWeight,
                  {"overallEventWeight", "ZLLCand_dataMCWeight", "ZLLbestSSIdx"})
-             .Redefine("eventWeightCRZL",
-                       [genEventSumw](
-                           Float_t overallWeight, ROOT::RVecF dataMCWeight,
-                           Short_t bestZIdx, Short_t bestZLIdx) -> Float_t {
-                         if (genEventSumw == 0 || bestZLIdx == -1) {
-                           return 0;
-                         } else {
-                           return overallWeight / genEventSumw;
-                         }
-                       },
-                       {"overallEventWeight", "ZZCand_dataMCWeight", "bestZIdx",
-                        "ZLCand_lepIdx"});
-  }
+             .Redefine(
+                 "eventWeightCRZL",
+                 [genEventSumw](
+                     Float_t overallWeight, ROOT::RVecF ElectronWeights,
+                     ROOT::RVecF MuonWeights, int nElectron, Short_t bestZIdx,
+                     Short_t bestZLIdx, ROOT::VecOps::RVec<Short_t> l1Idxs,
+                     ROOT::VecOps::RVec<Short_t> l2Idxs) -> Float_t {
+                   if (genEventSumw == 0 || bestZLIdx == -1) {
+                     return 0;
+                   } else {
+                     Float_t dataMCWeight(1);
+                     for (Short_t lIdx : {l1Idxs[bestZIdx], l2Idxs[bestZIdx]}) {
+                       if (lIdx < 0)
+                         continue;
 
-  return df;
-}
+                       if (lIdx < nElectron) {
+                         dataMCWeight *= ElectronWeights[lIdx];
+                       } else {
+                         dataMCWeight *= MuonWeights[lIdx - nElectron];
+                       }
+                     }
 
-template <typename T>
-inline T flattenVariable(const ROOT::VecOps::RVec<T> &Cand, Short_t bestIdx) {
-  return bestIdx >= 0 ? Cand[bestIdx] : -999.;
-}
-
-#define SR_FLATTEN_VARIABLE(columnTag, variableType)                           \
-  "ZZ" columnTag, flattenVariable<variableType>,                               \
-      {"ZZCand_" columnTag, "bestCandIdx"}
-
-#define CR_FLATTEN_VARIABLE(columnTag, variableType, region)                   \
-  "ZLL" region columnTag, flattenVariable<variableType>,                       \
-      {"ZLLCand_" columnTag, "ZLLbest" region "Idx"}
-
-#define CR2P2F_FLATTEN_VARIABLE(columnTag, variableType)                       \
-  CR_FLATTEN_VARIABLE(columnTag, variableType, "2P2F")
-
-#define CR3P1F_FLATTEN_VARIABLE(columnTag, variableType)                       \
-  CR_FLATTEN_VARIABLE(columnTag, variableType, "3P1F")
-
-#define CRSS_FLATTEN_VARIABLE(columnTag, variableType)                         \
-  CR_FLATTEN_VARIABLE(columnTag, variableType, "SS")
-
-#define ZL_FLATTEN_VARIABLE(columnTag, variableType)                           \
-  "ZL" columnTag, flattenVariable<variableType>,                               \
-      {"ZCand_" columnTag, "bestZIdx"}
-
-#define LEP_FLATTEN_VARIABLE(columnTag, variableType)                          \
-  "ZLlepton" columnTag, flattenVariable<variableType>,                         \
-      {"Lepton_" columnTag, "ZLCand_lepIdx"}
-
-#define DEFINE_SINGLE_VARIABLES(X)                                             \
-  .Define(X("mass", Float_t))                                                  \
-      .Define(X("pt", Float_t))                                                \
-      .Define(X("eta", Float_t))                                               \
-      .Define(X("phi", Float_t))
-
-#define DEFINE_ZZ_VARIABLES(X)                                                 \
-  .Define(X("Z1mass", Float_t))                                                \
-      .Define(X("Z2mass", Float_t))                                            \
-      .Define(X("costheta1", Float_t))                                         \
-      .Define(X("costheta2", Float_t))                                         \
-      .Define(X("costhetastar", Float_t))                                      \
-      .Define(X("Phi", Float_t))                                               \
-      .Define(X("Phi1", Float_t))
-
-#define DEFINE_VARIABLES(X) DEFINE_SINGLE_VARIABLES(X) DEFINE_ZZ_VARIABLES(X)
-
-template <bool hasCR>
-ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
-  df = df.Define("ZZFSflav",
-                 [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                   return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                     return overallWeight * dataMCWeight / genEventSumw;
+                   }
                  },
-                 {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"})
-           DEFINE_VARIABLES(SR_FLATTEN_VARIABLE);
+                 {"overallEventWeight", "Electron_dataMC", "Muon_dataMC",
+                  "nElectron", "bestZIdx", "ZLCand_lepIdx", "ZCand_l1Idx",
+                  "ZCand_l2Idx"})
+             .Redefine("eventWeightCRZLlepton",
+                       [genEventSumw](Float_t overallWeight,
+                                      ROOT::RVecF ElectronWeights,
+                                      ROOT::RVecF MuonWeights, int nElectron,
+                                      Short_t bestZLIdx) -> Float_t {
+                         if (genEventSumw == 0 || bestZLIdx == -1)
+                           return 0;
 
-  if constexpr (hasCR) {
-    df =
-        df.Define("ZLL2P2FFSflav",
-                  [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                    return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
-                  },
-                  {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest2P2FIdx"})
-            .Define(
-                "ZLL3P1FFSflav",
-                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
-                },
-                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest3P1FIdx"})
-            .Define(
-                "ZLLSSFSflav",
-                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
-                },
-                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbestSSIdx"})
+                         if (bestZLIdx < nElectron)
+                           return overallWeight * ElectronWeights[bestZLIdx] /
+                                  genEventSumw;
 
-                DEFINE_VARIABLES(CR2P2F_FLATTEN_VARIABLE)
-                    DEFINE_VARIABLES(CR3P1F_FLATTEN_VARIABLE)
-                        DEFINE_VARIABLES(CRSS_FLATTEN_VARIABLE)
-                            DEFINE_SINGLE_VARIABLES(ZL_FLATTEN_VARIABLE)
-                                DEFINE_SINGLE_VARIABLES(LEP_FLATTEN_VARIABLE);
+                         return overallWeight *
+                                MuonWeights[bestZLIdx - nElectron] /
+                                genEventSumw;
+                       },
+                       {"overallEventWeight", "Electron_dataMC", "Muon_dataMC",
+                        "nElectron", "ZLCand_lepIdx"})
+             .Redefine("eventWeightCRZLFull",
+                       [](Float_t Zweight, ROOT::RVecF ElectronWeights,
+                          ROOT::RVecF MuonWeights, int nElectron,
+                          Short_t bestZLIdx) -> Float_t {
+                         if (bestZLIdx == -1)
+                           return 0;
+                         if (bestZLIdx < nElectron)
+                           return Zweight * ElectronWeights[bestZLIdx];
+                         return Zweight * MuonWeights[bestZLIdx - nElectron];
+                       },
+                       {"eventWeightCRZL", "Electron_dataMC", "Muon_dataMC",
+                        "nElectron", "ZLCand_lepIdx"});
   }
 
   return df;
@@ -267,16 +230,26 @@ initializeHistogramModels(const std::string &sampleName) {
       for (const auto &variable : variables) {
         std::string xlabel = labelPerVariableZL.at(variable);
         for (HistogramBinning binning : binGranularites.at(unit)) {
-          auto currModel = HistogramModel(
-              /*isCR=*/true, variable, sampleName, xlabel, binning, unit,
-              /*fsFlav=*/FinalStateFlavor::L4, /*crIdx=*/ZL);
-          LOG("[initializeHistogramModels]\t Created model: "
-                  << currModel.getModel().fTitle << " for the variable "
-                  << currModel.getVariable(),
-              3);
-          models.push_back(currModel);
+          for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+            auto currModel = HistogramModel(
+                /*isCR=*/true, variable, sampleName, xlabel, binning, unit,
+                fsFlav, /*crIdx=*/ZL);
+            LOG("[initializeHistogramModels]\t Created model: "
+                    << currModel.getModel().fTitle << " for the variable "
+                    << currModel.getVariable(),
+                3);
+            models.push_back(currModel);
+          }
         }
       }
+    for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+      auto currModel =
+          HistogramModel(/*isCR=*/true, "ETmiss", sampleName, "E_{T}^{miss}",
+                         HistogramBinning{.nBins = 50, .xlow = 0, .xhigh = 100},
+                         m_l, fsFlav, /*crIdx=*/ZL);
+      currModel.setWeight("eventWeightCRZLFull");
+      models.push_back(currModel);
+    }
   }
 
   // Final state flavor plots as a sanity check
@@ -419,7 +392,7 @@ void H4l_Fill(const std::vector<std::string> &years = {"2025"},
               char verboseLevel = 0) {
   logging::verbose = verboseLevel;
   ROOT::EnableThreadSafety();
-  // ROOT::EnableImplicitMT(2);
+  ROOT::EnableImplicitMT();
   for (std::string year : years) {
     runMC(year);
     runData(year);

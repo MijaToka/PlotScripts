@@ -1,5 +1,14 @@
 #ifndef VARIABLES
 #define VARIABLES
+
+#include <Math/GenVector/LorentzVector.h>
+#include <Math/GenVector/PtEtaPhiM4D.h>
+#include <Math/Vector4Dfwd.h>
+#include <ROOT/RDF/InterfaceUtils.hxx>
+#include <ROOT/RDFHelpers.hxx>
+#include <ROOT/RDataFrame.hxx>
+#include <ROOT/RVec.hxx>
+#include <RtypesCore.h>
 #include <TMath.h>
 #include <map>
 #include <string>
@@ -19,7 +28,7 @@ const std::vector<HistogramBinning> zMassBinGranularities = {
     HistogramBinning{.nBins = 35, .xlow = 50., .xhigh = 120},
 };
 const std::vector<HistogramBinning> leptonMassBinGranularities = {
-    HistogramBinning{.nBins = 35, .xlow = 0., .xhigh = 2},
+    HistogramBinning{.nBins = 35, .xlow = 0., .xhigh = 0.2},
 };
 const std::vector<HistogramBinning> ptBinGranularities = {
     HistogramBinning{.nBins = 70, .xlow = 0., .xhigh = 350},
@@ -65,7 +74,8 @@ const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
     {eta, {"eta"}},
 };
 const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
-    {m_Z, {"mass", "leptonmass"}},
+    {m_Z, {"mass"}},
+    {m_l, {"leptonmass"}},
     {GeV_c, {"pt", "leptonpt"}},
     {angle, {"phi", "leptonphi"}},
     {eta, {"eta", "leptoneta"}},
@@ -80,7 +90,118 @@ const std::map<std::string, std::string> labelPerVariableZL = {
     {"leptonpt", "p_{T}^{#it{l}}"},
     {"leptoneta", "#eta_{#it{l}}"},
     {"leptonphi", "#phi_{#it{l}}"},
+    {"ETmiss", "E_{T}^{miss}"},
 };
+
+template <typename T>
+inline T flattenVariable(const ROOT::VecOps::RVec<T> &Cand, Short_t bestIdx) {
+  return bestIdx >= 0 ? Cand[bestIdx] : -999.;
+}
+
+#define SR_FLATTEN_VARIABLE(columnTag, variableType)                           \
+  "ZZ" columnTag, flattenVariable<variableType>,                               \
+      {"ZZCand_" columnTag, "bestCandIdx"}
+
+#define CR_FLATTEN_VARIABLE(columnTag, variableType, region)                   \
+  "ZLL" region columnTag, flattenVariable<variableType>,                       \
+      {"ZLLCand_" columnTag, "ZLLbest" region "Idx"}
+
+#define CR2P2F_FLATTEN_VARIABLE(columnTag, variableType)                       \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "2P2F")
+
+#define CR3P1F_FLATTEN_VARIABLE(columnTag, variableType)                       \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "3P1F")
+
+#define CRSS_FLATTEN_VARIABLE(columnTag, variableType)                         \
+  CR_FLATTEN_VARIABLE(columnTag, variableType, "SS")
+
+#define ZL_FLATTEN_VARIABLE(columnTag, variableType)                           \
+  "ZL" columnTag, flattenVariable<variableType>,                               \
+      {"ZCand_" columnTag, "bestZIdx"}
+
+#define LEP_FLATTEN_VARIABLE(columnTag, variableType)                          \
+  "ZLlepton" columnTag, flattenVariable<variableType>,                         \
+      {"Lepton_" columnTag, "ZLCand_lepIdx"}
+
+#define DEFINE_SINGLE_VARIABLES(X)                                             \
+  .Define(X("mass", Float_t))                                                  \
+      .Define(X("pt", Float_t))                                                \
+      .Define(X("eta", Float_t))                                               \
+      .Define(X("phi", Float_t))
+
+#define DEFINE_ZZ_VARIABLES(X)                                                 \
+  .Define(X("Z1mass", Float_t))                                                \
+      .Define(X("Z2mass", Float_t))                                            \
+      .Define(X("costheta1", Float_t))                                         \
+      .Define(X("costheta2", Float_t))                                         \
+      .Define(X("costhetastar", Float_t))                                      \
+      .Define(X("Phi", Float_t))                                               \
+      .Define(X("Phi1", Float_t))
+
+#define DEFINE_VARIABLES(X) DEFINE_SINGLE_VARIABLES(X) DEFINE_ZZ_VARIABLES(X)
+
+template <bool hasCR>
+ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
+  df = df.Define("ZZFSflav",
+                 [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                   return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                 },
+                 {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"})
+           DEFINE_VARIABLES(SR_FLATTEN_VARIABLE);
+
+  if constexpr (hasCR) {
+    df =
+        df.Define("ZLL2P2FFSflav",
+                  [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                    return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                  },
+                  {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest2P2FIdx"})
+            .Define(
+                "ZLL3P1FFSflav",
+                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                },
+                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest3P1FIdx"})
+            .Define(
+                "ZLLSSFSflav",
+                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
+                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+                },
+                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbestSSIdx"})
+            .Define("ZLFSflav",
+                    [](ROOT::RVecI ZFlav, ROOT::RVecI LepFlav, Short_t bestZIdx,
+                       Short_t bestZLIdx) {
+                      return bestZLIdx >= 0
+                                 ? ZFlav[bestZIdx] * LepFlav[bestZLIdx]
+                                 : 0.;
+                    },
+                    {"ZCand_flav", "Lepton_pdgId", "bestZIdx", "ZLCand_lepIdx"})
+
+                DEFINE_VARIABLES(CR2P2F_FLATTEN_VARIABLE)
+                    DEFINE_VARIABLES(CR3P1F_FLATTEN_VARIABLE)
+                        DEFINE_VARIABLES(CRSS_FLATTEN_VARIABLE)
+                            DEFINE_SINGLE_VARIABLES(ZL_FLATTEN_VARIABLE)
+                                DEFINE_SINGLE_VARIABLES(LEP_FLATTEN_VARIABLE)
+            .Define("ZLETmiss",
+                    [](Float_t Zmass, Float_t Zpt, Float_t Zeta, Float_t Zphi,
+                       Float_t Lmass, Float_t Lpt, Float_t Leta, Float_t Lphi,
+                       Short_t bestZLIdx) -> Float_t {
+                      if (bestZLIdx == -1)
+                        return -999.;
+
+                      ROOT::Math::PtEtaPhiMVector Z(Zpt, Zeta, Zphi, Zmass);
+                      ROOT::Math::PtEtaPhiMVector L(Lpt, Leta, Lphi, Lmass);
+
+                      ROOT::Math::PtEtaPhiMVector missing = (Z + L);
+                      return missing.Pt();
+                    },
+                    {"ZLmass", "ZLpt", "ZLeta", "ZLphi", "ZLleptonmass",
+                     "ZLleptonpt", "ZLleptoneta", "ZLleptonphi",
+                     "ZLCand_lepIdx"});
+  }
+
+  return df;
+}
 
 std::string getUnitName(unitIdx unit) {
   switch (unit) {

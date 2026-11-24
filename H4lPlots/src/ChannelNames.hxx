@@ -109,10 +109,23 @@ constexpr std::array<const char *, 8> Data_MuonEG2025 = {
 const std::array<const char *, 56> Data_dataSets2025 =
     concatAll(Data_EGamma2025, Data_Muon2025, Data_MuonEG2025);
 
-enum class FinalStateFlavor { L4, E4 = 14641, E2Mu2 = 20449, Mu4 = 28561 };
+enum class FinalStateFlavor {
+  L4,
+  E3 = 1331,
+  E2Mu1 = 1573,
+  Mu2E1 = 1859,
+  Mu3 = 2197,
+  E4 = 14641,
+  E2Mu2 = 20449,
+  Mu4 = 28561
+};
 
 constexpr FinalStateFlavor fsFlavors[] = {
     FinalStateFlavor::L4, FinalStateFlavor::E4, FinalStateFlavor::E2Mu2,
     FinalStateFlavor::Mu4};
+
+constexpr FinalStateFlavor fsFlavorsZL[] = {
+    FinalStateFlavor::L4, FinalStateFlavor::E3, FinalStateFlavor::E2Mu1,
+    FinalStateFlavor::Mu2E1, FinalStateFlavor::Mu3};
 
 #endif
