@@ -39,6 +39,7 @@
     "/eos/user/m/mtokarev/work_area/currentCMSSW/src")
 
 #include "PlotScripts/H4lPlots/interface/Logger.hxx"
+#include "PlotScripts/H4lPlots/src/CMSHeader.C"
 #include "PlotScripts/H4lPlots/src/ChannelNames.hxx"
 #include "PlotScripts/H4lPlots/src/H4l_Common.C"
 #include "PlotScripts/H4lPlots/src/Paths.hxx"
@@ -52,6 +53,11 @@ const std::map<std::string, float> LumiPerPeriod = {
     {"2024", 109.95},
     {"2025", 110.63},
 }; // Place-holder value
+
+const std::map<std::string, float> sqrtSPerPeriod = {
+    {"2024", 13.6},
+    {"2025", 13.6},
+};
 
 const std::map<std::string, std::string> latexVariableNames = {
     {"ZZMass", "m_{#it{4l}}"},
@@ -399,7 +405,8 @@ template <bool isCR>
 void drawPlots(
     TCanvas *canvas, THStack *mcStack,
     const std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS> &mcHistos,
-    TGraphAsymmErrors *data, const char *variable, const bool blinded = true) {
+    TGraphAsymmErrors *data, const char *variable,
+    const std::vector<std::string> &periods, const bool blinded = true) {
 
   canvas->SetTicks();
 
@@ -459,6 +466,14 @@ void drawPlots(
 
   legend->Draw();
 
+  float lumi, cmEnergy;
+  for (const std::string &period : periods) {
+    lumi += LumiPerPeriod.at(period);
+    cmEnergy = sqrtSPerPeriod.at(period);
+  }
+  CMS header("Private", lumi, cmEnergy);
+  header.formatPad(padStack);
+
   padRatio->cd();
   bool firstHisto(true);
   TH1D *hsum;
@@ -473,6 +488,7 @@ void drawPlots(
 
   TH1D *dataHisto = TGraphAsymmErrorsToTH1(data, hsum);
   TH1D *ratio = (TH1D *)dataHisto->Clone("Ratio");
+  dataHisto->SetDirectory(nullptr);
   delete dataHisto;
 
   ratio->Divide(hsum);
@@ -507,6 +523,8 @@ void drawPlots(
 void assertPeriod(const std::string &period) {
   assert(LumiPerPeriod.find(period) != LumiPerPeriod.end() &&
          "Luminosity not configured for current period");
+  assert(sqrtSPerPeriod.find(period) != sqrtSPerPeriod.end() &&
+         "Center of mass energy not cofigured for current period");
   assert(MC_FILL_FILES.find(period) != MC_FILL_FILES.end() &&
          "H4lFill_MC file path not configured for current period");
   assert(DATA_FILL_FILES.find(period) != DATA_FILL_FILES.end() &&
@@ -671,7 +689,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
 
   LOG("[writePlot]\tLaying down the canvas", 1);
   drawPlots<isCR>(canvas, stack, MCHistograms, data, fullVariableName.c_str(),
-                  isBlinded);
+                  periods, isBlinded);
 
   outFile->cd(outDir.c_str());
   canvas->Write();
