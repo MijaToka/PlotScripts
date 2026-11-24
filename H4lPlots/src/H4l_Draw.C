@@ -435,7 +435,7 @@ void drawPlots(
 
   mcStack->GetXaxis()->SetLabelSize(0);
 
-  if (blinded && strcmp(variable, "ZZMass") == 0) {
+  if (blinded && strcmp(variable, "ZZmass") == 0) {
     Float_t epsilon(0.1);
     for (blindInterval interval : blindIntervals) {
       TBox *bblind =
@@ -639,9 +639,9 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
           TString::Format("Data_histogram%s", period.c_str()).Data(), fsFlav);
       firstPeriod = !firstPeriod;
     } else {
-      const auto currMCHistos = getMCHistos</*isCR=*/false>(
-          inMCFiles[period], lumi, fullVariableName.c_str(), fsFlav, binning,
-          unit);
+      const auto currMCHistos =
+          getMCHistos<isCR>(inMCFiles[period], lumi, fullVariableName.c_str(),
+                            fsFlav, binning, unit);
       for (auto idx : selectIdx<isCR>())
         MCHistograms[idx]->Add(currMCHistos[idx]);
 
