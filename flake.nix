@@ -58,6 +58,8 @@
               packages = with pkgs; [
                 root
                 cmake
+                gdb
+                gf
                 pkg-config
                 (python3.withPackages physicsPackages)
               ];
