@@ -92,7 +92,8 @@ ROOT::RDF::RNode initializeRDF(const std::vector<std::string> &files) {
              .Define("eventWeightCR3P1F", []() { return 1.; }, {})
              .Define("eventWeightCRSS", []() { return 1.; }, {})
              .Define("eventWeightCRZL", []() { return 1.; }, {})
-             .Define("eventWeightCRZLlepton", []() { return 1.; }, {});
+             .Define("eventWeightCRZLlepton", []() { return 1.; }, {})
+             .Define("eventWeightCRZLFull", []() { return 1.; }, {});
   }
   return df;
 }
@@ -169,6 +170,18 @@ ROOT::RDF::RNode calculateEventWeight(Float_t genEventSumw,
                                 genEventSumw;
                        },
                        {"overallEventWeight", "Electron_dataMC", "Muon_dataMC",
+                        "nElectron", "ZLCand_lepIdx"})
+             .Redefine("eventWeightCRZLFull",
+                       [](Float_t Zweight, ROOT::RVecF ElectronWeights,
+                          ROOT::RVecF MuonWeights, int nElectron,
+                          Short_t bestZLIdx) -> Float_t {
+                         if (bestZLIdx == -1)
+                           return 0;
+                         if (bestZLIdx < nElectron)
+                           return Zweight * ElectronWeights[bestZLIdx];
+                         return Zweight * MuonWeights[bestZLIdx - nElectron];
+                       },
+                       {"eventWeightCRZL", "Electron_dataMC", "Muon_dataMC",
                         "nElectron", "ZLCand_lepIdx"});
   }
 
@@ -229,6 +242,14 @@ initializeHistogramModels(const std::string &sampleName) {
           }
         }
       }
+    for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+      auto currModel =
+          HistogramModel(/*isCR=*/true, "ETmiss", sampleName, "E_{T}^{miss}",
+                         HistogramBinning{.nBins = 50, .xlow = 0, .xhigh = 100},
+                         m_l, fsFlav, /*crIdx=*/ZL);
+      currModel.setWeight("eventWeightCRZLFull");
+      models.push_back(currModel);
+    }
   }
 
   // Final state flavor plots as a sanity check

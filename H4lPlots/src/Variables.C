@@ -1,5 +1,9 @@
 #ifndef VARIABLES
 #define VARIABLES
+
+#include <Math/GenVector/LorentzVector.h>
+#include <Math/GenVector/PtEtaPhiM4D.h>
+#include <Math/Vector4Dfwd.h>
 #include <ROOT/RDF/InterfaceUtils.hxx>
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RDataFrame.hxx>
@@ -86,6 +90,7 @@ const std::map<std::string, std::string> labelPerVariableZL = {
     {"leptonpt", "p_{T}^{#it{l}}"},
     {"leptoneta", "#eta_{#it{l}}"},
     {"leptonphi", "#phi_{#it{l}}"},
+    {"ETmiss", "E_{T}^{miss}"},
 };
 
 template <typename T>
@@ -176,7 +181,23 @@ ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
                     DEFINE_VARIABLES(CR3P1F_FLATTEN_VARIABLE)
                         DEFINE_VARIABLES(CRSS_FLATTEN_VARIABLE)
                             DEFINE_SINGLE_VARIABLES(ZL_FLATTEN_VARIABLE)
-                                DEFINE_SINGLE_VARIABLES(LEP_FLATTEN_VARIABLE);
+                                DEFINE_SINGLE_VARIABLES(LEP_FLATTEN_VARIABLE)
+            .Define("ZLETmiss",
+                    [](Float_t Zmass, Float_t Zpt, Float_t Zeta, Float_t Zphi,
+                       Float_t Lmass, Float_t Lpt, Float_t Leta, Float_t Lphi,
+                       Short_t bestZLIdx) -> Float_t {
+                      if (bestZLIdx == -1)
+                        return -999.;
+
+                      ROOT::Math::PtEtaPhiMVector Z(Zpt, Zeta, Zphi, Zmass);
+                      ROOT::Math::PtEtaPhiMVector L(Lpt, Leta, Lphi, Lmass);
+
+                      ROOT::Math::PtEtaPhiMVector missing = (Z + L);
+                      return missing.Pt();
+                    },
+                    {"ZLmass", "ZLpt", "ZLeta", "ZLphi", "ZLleptonmass",
+                     "ZLleptonpt", "ZLleptoneta", "ZLleptonphi",
+                     "ZLCand_lepIdx"});
   }
 
   return df;

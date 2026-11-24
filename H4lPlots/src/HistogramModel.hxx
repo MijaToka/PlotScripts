@@ -11,6 +11,7 @@
 
 class HistogramModel {
   bool hasFilter_ = false;
+  bool weightOverride = false;
   bool isCR_;
   unitIdx unit;
   CRIdx crIdx;
@@ -18,6 +19,7 @@ class HistogramModel {
   HistogramBinning binning;
   std::string variable, xlabel, sampleName, filter;
   std::string filterNameSuffix = "";
+  std::string weightColumn = "eventWeight";
 
   void addCandidateFilter() {
     if (isCR_) {
@@ -126,13 +128,16 @@ public:
   }
 
   std::string getWeight() {
-    std::string weightColumn = "eventWeight";
+    if (weightOverride)
+      return weightColumn;
+
+    std::string weightColumnSuffix = "";
     if (isCR_) {
-      weightColumn += "CR" + CRNames.at(crIdx);
+      weightColumnSuffix += "CR" + CRNames.at(crIdx);
       if (crIdx == ZL && variable.rfind("lepton", 0) != std::string::npos)
-        weightColumn += "lepton";
+        weightColumnSuffix += "lepton";
     }
-    return weightColumn;
+    return weightColumn + weightColumnSuffix;
   }
 
   bool hasFilter() { return hasFilter_; }
@@ -142,5 +147,15 @@ public:
   void setFilter(TString newFilter) {
     hasFilter_ = true;
     filter = newFilter;
+  }
+
+  void setWeight(std::string weight) {
+    weightColumn = weight;
+    weightOverride = true;
+  }
+
+  void resetWeight() {
+    weightColumn = "eventWeight";
+    weightOverride = false;
   }
 };
