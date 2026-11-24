@@ -343,18 +343,21 @@ void fillHistos(const DataSet &sample, TFile &outFile) {
   }
 }
 
-template <bool isMC> constexpr auto selectDataSet() {
+template <bool isMC> constexpr auto selectDataSet(const std::string &period) {
   if constexpr (isMC)
     return MC_dataSets;
-  else
-    return Data_dataSets2025;
+  else {
+    assert(periodIndex.find(period) != periodIndex.end() &&
+           "Data period not configured");
+    return Data_dataSets[periodIndex.at(period)];
+  }
 }
 
 template <bool isMC> void run(const std::string &period = "2025") {
 
   TString outName = TString::Format("H4lFill_%s%s.root", isMC ? "MC" : "Data",
                                     period.c_str());
-  auto dataSets = selectDataSet<isMC>();
+  View<const char *> dataSets = selectDataSet<isMC>(period);
   auto INPUT_PATH = isMC ? MC_PATHS : DATA_PATHS;
 
   auto outFile = std::unique_ptr<TFile>(TFile::Open(outName, "RECREATE"));
