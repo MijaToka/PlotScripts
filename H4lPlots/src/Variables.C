@@ -46,6 +46,40 @@ const std::vector<HistogramBinning> METBinGranularities = {
     HistogramBinning{.nBins = 50, .xlow = 0, .xhigh = 100},
 };
 
+const std::vector<HistogramBinning> pdgIdxBinGranularities = {
+    HistogramBinning{.nBins = 2 * 13 * 13 * 13 * 13 + 1,
+                     .xlow = -13 * 13 * 13 * 13,
+                     .xhigh = 13 * 13 * 13 * 13},
+};
+
+enum unitIdx { m_H, m_Z, m_l, MET, GeV_c, angle, cosAngle, eta, Idx };
+const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
+    {m_H, higgsMassBinGranularities},  {m_Z, zMassBinGranularities},
+    {GeV_c, ptBinGranularities},       {angle, angleBinGranularities},
+    {cosAngle, cosBinGranularities},   {eta, etaBinGranularities},
+    {m_l, leptonMassBinGranularities}, {MET, METBinGranularities},
+    {Idx, pdgIdxBinGranularities},
+};
+
+const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
+    {m_H, {"mass"}},
+    {m_Z, {"Z1mass", "Z2mass"}},
+    {GeV_c, {"pt"}},
+    {angle, {"phi", "Phi", "Phi1"}},
+    {cosAngle, {"costheta1", "costheta2", "costhetastar"}},
+    {eta, {"eta"}},
+    {Idx, {"FSflav"}},
+};
+const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
+    {m_Z, {"mass"}},
+    {m_l, {"leptonmass"}},
+    {MET, {"ETmiss"}},
+    {GeV_c, {"pt", "leptonpt"}},
+    {angle, {"phi", "leptonphi"}},
+    {eta, {"eta", "leptoneta"}},
+    {Idx, {"FSflav"}},
+};
+
 const std::map<std::string, std::string> labelPerVariable = {
     {"mass", "m_{#it{4l}}"},
     {"Z1mass", "m_{Z_1}"},
@@ -58,31 +92,7 @@ const std::map<std::string, std::string> labelPerVariable = {
     {"costhetastar", "cos#theta^{*}"},
     {"Phi", "#Phi_{#it{4l}}"},
     {"Phi1", "#Phi1_{#it{4l}}"},
-};
-
-enum unitIdx { m_H, m_Z, m_l, MET, GeV_c, angle, cosAngle, eta, Idx };
-const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
-    {m_H, higgsMassBinGranularities},  {m_Z, zMassBinGranularities},
-    {GeV_c, ptBinGranularities},       {angle, angleBinGranularities},
-    {cosAngle, cosBinGranularities},   {eta, etaBinGranularities},
-    {m_l, leptonMassBinGranularities}, {MET, METBinGranularities},
-};
-
-const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
-    {m_H, {"mass"}},
-    {m_Z, {"Z1mass", "Z2mass"}},
-    {GeV_c, {"pt"}},
-    {angle, {"phi", "Phi", "Phi1"}},
-    {cosAngle, {"costheta1", "costheta2", "costhetastar"}},
-    {eta, {"eta"}},
-};
-const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
-    {m_Z, {"mass"}},
-    {m_l, {"leptonmass"}},
-    {MET, {"ETmiss"}},
-    {GeV_c, {"pt", "leptonpt"}},
-    {angle, {"phi", "leptonphi"}},
-    {eta, {"eta", "leptoneta"}},
+    {"FSflav", "Event flavor pdgID"},
 };
 
 const std::map<std::string, std::string> labelPerVariableZL = {
@@ -95,6 +105,7 @@ const std::map<std::string, std::string> labelPerVariableZL = {
     {"leptoneta", "#eta_{#it{l}}"},
     {"leptonphi", "#phi_{#it{l}}"},
     {"ETmiss", "E_{T}^{miss}"},
+    {"FSflav", "Event flavor pdgID"},
 };
 
 template <typename T>

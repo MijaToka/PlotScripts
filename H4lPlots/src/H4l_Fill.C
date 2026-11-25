@@ -161,12 +161,16 @@ std::vector<HistogramModel>
 initializeHistogramModels(const std::string &sampleName) {
   std::vector<HistogramModel> models;
 
-  // Z+ll plots
+  // Z(Z/ll) plots
   for (const auto &[unit, variables] : variablesPerUnit)
     for (const auto &variable : variables) {
       std::string xlabel = labelPerVariable.at(variable);
       for (HistogramBinning binning : binGranularites.at(unit)) {
         for (FinalStateFlavor fsFlav : fsFlavors) {
+
+          if (unit == Idx && fsFlav != FinalStateFlavor::L4)
+            continue;
+
           auto currModel = HistogramModel(/*isCR=*/false, variable, sampleName,
                                           xlabel, binning, unit, fsFlav);
           LOG("[initializeHistogramModels]\t Created model: "
@@ -199,6 +203,10 @@ initializeHistogramModels(const std::string &sampleName) {
         std::string xlabel = labelPerVariableZL.at(variable);
         for (HistogramBinning binning : binGranularites.at(unit)) {
           for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+
+            if (unit == Idx && fsFlav != FinalStateFlavor::L4)
+              continue;
+
             auto currModel = HistogramModel(
                 /*isCR=*/true, variable, sampleName, xlabel, binning, unit,
                 fsFlav, /*crIdx=*/ZL);
@@ -213,32 +221,34 @@ initializeHistogramModels(const std::string &sampleName) {
   }
 
   // Final state flavor plots as a sanity check
-  HistogramModel flavorPlot = HistogramModel(
-      /*isCR=*/false,
-      /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",
-      /*binning=*/
-      HistogramBinning{.nBins = static_cast<Int_t>(FinalStateFlavor::Mu4) -
-                                static_cast<Int_t>(FinalStateFlavor::E4) + 1,
-                       .xlow = static_cast<Int_t>(FinalStateFlavor::E4),
-                       .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
-      /*unit=*/Idx, FinalStateFlavor::L4);
-
-  models.push_back(flavorPlot);
-  if constexpr (hasCR) {
-    for (CRIdx crIdx : {P2F2, P3F1, SS}) {
-      HistogramModel flavorPlot = HistogramModel(
-          /*isCR=*/true,
-          /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",
-          /*binning=*/
-          HistogramBinning{
-              .nBins = 2 * static_cast<Int_t>(FinalStateFlavor::Mu4) + 1,
-              .xlow = -static_cast<Int_t>(FinalStateFlavor::Mu4),
-              .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
-          /*unit=*/Idx, FinalStateFlavor::L4, crIdx);
-
-      models.push_back(flavorPlot);
-    }
-  }
+  //  HistogramModel flavorPlot = HistogramModel(
+  //      /*isCR=*/false,
+  //      /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",
+  //      /*binning=*/
+  //      HistogramBinning{.nBins = static_cast<Int_t>(FinalStateFlavor::Mu4) -
+  //                                static_cast<Int_t>(FinalStateFlavor::E4) +
+  //                                1,
+  //                       .xlow = static_cast<Int_t>(FinalStateFlavor::E4),
+  //                       .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
+  //      /*unit=*/Idx, FinalStateFlavor::L4);
+  //
+  //  models.push_back(flavorPlot);
+  //  if constexpr (hasCR) {
+  //    for (CRIdx crIdx : {P2F2, P3F1, SS, ZL}) {
+  //      HistogramModel flavorPlot = HistogramModel(
+  //          /*isCR=*/true,
+  //          /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor
+  //          pdgID",
+  //          /*binning=*/
+  //          HistogramBinning{
+  //              .nBins = 2 * static_cast<Int_t>(FinalStateFlavor::Mu4) + 1,
+  //              .xlow = -static_cast<Int_t>(FinalStateFlavor::Mu4),
+  //              .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
+  //          /*unit=*/Idx, FinalStateFlavor::L4, crIdx);
+  //
+  //      models.push_back(flavorPlot);
+  //    }
+  //  }
   return models;
 }
 

@@ -740,11 +740,16 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
   outFile->mkdir("CRSS");
   outFile->mkdir("CRZL");
 
+  // Z(Z/ll) plots
   for (const auto &[unit, variables] : variablesPerUnit) {
     std::string unitName = getUnitName(unit);
     for (const auto &variable : variables) {
       for (HistogramBinning binning : binGranularites.at(unit))
         for (FinalStateFlavor fsFlav : fsFlavors) {
+
+          if (unit == Idx && fsFlav != FinalStateFlavor::L4)
+            continue;
+
           writePlot</*isCR=*/false>(outFile, inMCFiles, inDataFiles, periods,
                                     variable.c_str(), fsFlav,
                                     int(binning.getBinSize()), unit, isBlinded);
@@ -761,11 +766,16 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
     }
   }
 
+  // Z+l Control region
   for (const auto &[unit, variables] : variablesPerUnitZL)
     for (const auto &variable : variables) {
       std::string xlabel = labelPerVariableZL.at(variable);
       for (HistogramBinning binning : binGranularites.at(unit)) {
         for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+
+          if (unit == Idx && fsFlav != FinalStateFlavor::L4)
+            continue;
+
           writePlot</*isCR=*/true, ZL>(
               outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
               fsFlav, int(binning.getBinSize()), unit, isBlinded);
