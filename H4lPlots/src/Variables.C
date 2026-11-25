@@ -42,6 +42,9 @@ const std::vector<HistogramBinning> etaBinGranularities = {
 const std::vector<HistogramBinning> angleBinGranularities = {
     HistogramBinning{.nBins = 50, .xlow = -TMath::Pi(), .xhigh = TMath::Pi()},
 };
+const std::vector<HistogramBinning> METBinGranularities = {
+    HistogramBinning{.nBins = 50, .xlow = 0, .xhigh = 100},
+};
 
 const std::map<std::string, std::string> labelPerVariable = {
     {"mass", "m_{#it{4l}}"},
@@ -57,12 +60,12 @@ const std::map<std::string, std::string> labelPerVariable = {
     {"Phi1", "#Phi1_{#it{4l}}"},
 };
 
-enum unitIdx { m_H, m_Z, m_l, GeV_c, angle, cosAngle, eta, Idx };
+enum unitIdx { m_H, m_Z, m_l, MET, GeV_c, angle, cosAngle, eta, Idx };
 const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
     {m_H, higgsMassBinGranularities},  {m_Z, zMassBinGranularities},
     {GeV_c, ptBinGranularities},       {angle, angleBinGranularities},
     {cosAngle, cosBinGranularities},   {eta, etaBinGranularities},
-    {m_l, leptonMassBinGranularities},
+    {m_l, leptonMassBinGranularities}, {MET, METBinGranularities},
 };
 
 const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
@@ -76,6 +79,7 @@ const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
 const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
     {m_Z, {"mass"}},
     {m_l, {"leptonmass"}},
+    {MET, {"ETmiss"}},
     {GeV_c, {"pt", "leptonpt"}},
     {angle, {"phi", "leptonphi"}},
     {eta, {"eta", "leptoneta"}},
@@ -208,6 +212,7 @@ std::string getUnitName(unitIdx unit) {
   case m_H:
   case m_Z:
   case m_l:
+  case MET:
     return "GeV";
   case GeV_c:
     return "GeV/c";

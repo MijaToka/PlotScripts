@@ -777,10 +777,6 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
         }
       }
     }
-  for (FinalStateFlavor fsFlav : fsFlavorsZL) {
-    writePlot<true, ZL>(outFile, inMCFiles, inDataFiles, periods, "ETmiss",
-                        fsFlav, 2, m_l, isBlinded);
-  }
 
   LOG("[H4l_Draw]\tClosing file " << outPath, 0);
   outFile->cd();

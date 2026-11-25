@@ -210,13 +210,6 @@ initializeHistogramModels(const std::string &sampleName) {
           }
         }
       }
-    for (FinalStateFlavor fsFlav : fsFlavorsZL) {
-      auto currModel =
-          HistogramModel(/*isCR=*/true, "ETmiss", sampleName, "E_{T}^{miss}",
-                         HistogramBinning{.nBins = 50, .xlow = 0, .xhigh = 100},
-                         m_l, fsFlav, /*crIdx=*/ZL);
-      models.push_back(currModel);
-    }
   }
 
   // Final state flavor plots as a sanity check
