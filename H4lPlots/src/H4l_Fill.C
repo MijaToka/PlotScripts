@@ -291,10 +291,6 @@ void fillHistos(const DataSet &sample, TFile &outFile) {
                                   model.getWeight());
     histograms.push_back(hist);
     handles.push_back(hist);
-
-    auto sumW = selection.Sum(model.getWeight());
-    sumWs.push_back(sumW);
-    handles.push_back(sumW);
   }
 
   LOG("[fillHistos]\tRunning event loop for " << sample.name, 1);
