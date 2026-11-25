@@ -22,6 +22,7 @@ public:
     std::ostringstream oss;
     oss << "#font[61]{CMS} #font[52]{" << type << "}";
     CMSHeader.DrawLatex(0.12, 0.92, oss.str().c_str());
+    oss.str("");
     oss.clear();
     oss << "#font[42]{" << std::fixed << std::setprecision(1) << luminosity
         << " fb^{-1} (" << std::fixed << std::setprecision(1) << cmEnergy

@@ -25,5 +25,7 @@ const std::map<std::string, std::filesystem::path> MC_FILL_FILES = {
 };
 
 const std::map<std::string, std::filesystem::path> DATA_FILL_FILES = {
-    {"2025", REPO_PATH / "outputs" / "H4lFill_Data2025.root"}};
+    {"2024", REPO_PATH / "outputs" / "H4lFill_Data2024.root"},
+    {"2025", REPO_PATH / "outputs" / "H4lFill_Data2025.root"},
+};
 #endif

@@ -59,15 +59,6 @@ const std::map<std::string, float> sqrtSPerPeriod = {
     {"2025", 13.6},
 };
 
-const std::map<std::string, std::string> latexVariableNames = {
-    {"ZZMass", "m_{#it{4l}}"},
-    {"ZZMass_4e", "m_{#it{4e}}"},
-    {"ZZMass_2e2mu", "m_{#it{2e2#mu}}"},
-    {"ZZMass_4mu", "m_{#it{4#mu}}"},
-    {"Z1Mass", "m_{Z_{1}}"},
-    {"Z2Mass", "m_{Z_{2}}"},
-};
-
 const std::unordered_map<std::string, std::vector<std::string>>
     dataSetPerPeriod = {{"Run3",
                          {"2022", "2022EE", "2023preBPix", "2023postBPix",
@@ -520,16 +511,20 @@ void drawPlots(
 }
 
 void assertPeriod(const std::string &period) {
-  assert(LumiPerPeriod.find(period) != LumiPerPeriod.end() &&
-         "Luminosity not configured for current period");
-  assert(sqrtSPerPeriod.find(period) != sqrtSPerPeriod.end() &&
-         "Center of mass energy not cofigured for current period");
-  assert(MC_FILL_FILES.find(period) != MC_FILL_FILES.end() &&
-         "H4lFill_MC file path not configured for current period");
-  assert(DATA_FILL_FILES.find(period) != DATA_FILL_FILES.end() &&
-         "H4lFill_Data fill path not configured for current period");
-  assert(periodIndex.find(period) != periodIndex.end() &&
-         "Data period not configured");
+  auto require = [&period](bool ok, const char *msg) {
+    if (!ok)
+      throw std::runtime_error(std::string(msg) + ": " + period);
+  };
+  require(LumiPerPeriod.find(period) != LumiPerPeriod.end(),
+          "Luminosity not configured for current period");
+  require(sqrtSPerPeriod.find(period) != sqrtSPerPeriod.end(),
+          "Center of mass energy not cofigured for current period");
+  require(MC_FILL_FILES.find(period) != MC_FILL_FILES.end(),
+          "H4lFill_MC file path not configured for current period");
+  require(DATA_FILL_FILES.find(period) != DATA_FILL_FILES.end(),
+          "H4lFill_Data fill path not configured for current period");
+  require(periodIndex.find(period) != periodIndex.end(),
+          "Data period not configured");
 }
 
 template <bool isMC> constexpr auto selectFillFiles() {
