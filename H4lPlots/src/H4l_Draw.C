@@ -727,7 +727,8 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
 
   setStyle();
 
-  std::filesystem::path outPath = REPO_PATH / "outputs" / "H4lDraw.root";
+  TString fileName = TString::Format("H4Draw%s.root", period.c_str());
+  std::filesystem::path outPath = REPO_PATH / "outputs" / fileName.Data();
 
   LOG("[H4l_Draw]\tOutputs will be written to " << outPath, 1);
 
