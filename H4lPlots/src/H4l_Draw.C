@@ -1,3 +1,4 @@
+#include <Math/Vector4Dfwd.h>
 #include <ROOT/RDF/HistoModels.hxx>
 #include <ROOT/RDF/InterfaceUtils.hxx>
 #include <Rtypes.h>
@@ -11,6 +12,7 @@
 #include <TGraphAsymmErrors.h>
 #include <TH1.h>
 #include <THStack.h>
+#include <TLatex.h>
 #include <TLegend.h>
 #include <TLine.h>
 #include <TMath.h>
@@ -399,11 +401,69 @@ void addLegendEntries(
   }
 }
 
-template <bool isCR>
+template <bool isCR, CRIdx crIdx>
+void addProcessLabel(TPad *pad, FinalStateFlavor fsFlav) {
+  pad->cd();
+  TLatex latex;
+  latex.SetNDC();
+  latex.SetTextFont(42);
+  latex.SetTextSize(0.75 * pad->GetTopMargin());
+
+  double x = 1.1 * pad->GetLeftMargin();
+  double y = 1 - 1.8 * pad->GetTopMargin();
+
+  std::ostringstream oss;
+  if constexpr (!isCR) {
+    oss << "ZZ#rightarrow ";
+  } else {
+    if constexpr (crIdx == P2F2) {
+      oss << "(2P2F CR) Z+#it{ll}#rightarrow ";
+    } else if constexpr (crIdx == P3F1) {
+      oss << "(3P1F CR) Z+#it{ll}#rightarrow ";
+    } else if constexpr (crIdx == SS) {
+      oss << "(SS CR) Z+#it{ll}#rightarrow ";
+    } else if constexpr (crIdx == ZL) {
+      oss << "Z+#it{l}#rightarrow ";
+    }
+  }
+  switch (fsFlav) {
+  case FinalStateFlavor::L4:
+    if constexpr (crIdx == ZL) {
+      oss << "3#it{l}";
+    } else {
+      oss << "4#it{l}";
+    }
+    break;
+  case FinalStateFlavor::E3:
+    oss << "#it{ee} + #it{e}";
+    break;
+  case FinalStateFlavor::E2Mu1:
+    oss << "#it{ee} + #it{#mu}";
+    break;
+  case FinalStateFlavor::Mu2E1:
+    oss << "#it{#mu#mu} + #it{e}";
+    break;
+  case FinalStateFlavor::Mu3:
+    oss << "#it{#mu#mu}+#it{#mu}";
+    break;
+  case FinalStateFlavor::E4:
+    oss << "4 #it{e}";
+    break;
+  case FinalStateFlavor::E2Mu2:
+    oss << "2 #it{e} + 2 #it{#mu}";
+    break;
+  case FinalStateFlavor::Mu4:
+    oss << "4 #it{#mu}";
+    break;
+  }
+  latex.DrawLatex(x, y, oss.str().c_str());
+}
+
+template <bool isCR, CRIdx crIdx>
 void drawPlots(
     TCanvas *canvas, THStack *mcStack,
     const std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS> &mcHistos,
-    TGraphAsymmErrors *data, const char *variable,
+    TGraphAsymmErrors *data, const char *variable, FinalStateFlavor fsFlav,
     const std::vector<std::string> &periods, const bool blinded = true) {
 
   canvas->SetTicks();
@@ -455,7 +515,7 @@ void drawPlots(
 
   gPad->RedrawAxis();
 
-  TLegend *legend = new TLegend(0.65, 0.40, 0.95, 0.78);
+  TLegend *legend = new TLegend(0.75, 0.45, 0.95, 0.88);
   addLegendEntries<isCR>(legend, data, mcHistos, variable);
   legend->SetFillColor(kWhite);
   legend->SetLineColor(kWhite);
@@ -471,6 +531,8 @@ void drawPlots(
   }
   CMS header("Private", lumi, cmEnergy);
   header.formatPad(padStack);
+
+  addProcessLabel<isCR, crIdx>(padStack, fsFlav);
 
   padRatio->cd();
   bool firstHisto(true);
@@ -583,6 +645,34 @@ std::string makeXlabel(const char *variable, bool isCR,
              0);
       return variable;
     }
+    if (fsFlav != FinalStateFlavor::L4) {
+      TString xlabelPreformat = labelPerVariableZL.at(variable);
+      std::string Zstring = "Z";
+      std::string Lstring = "l";
+      switch (fsFlav) {
+      case FinalStateFlavor::E3:
+        Zstring = "Z#rightarrow#it{ee}";
+        Lstring = "e";
+        break;
+      case FinalStateFlavor::E2Mu1:
+        Zstring = "Z#rightarrow#it{ee}";
+        Lstring = "#mu";
+        break;
+      case FinalStateFlavor::Mu2E1:
+        Zstring = "Z#rightarrow#it{#mu#mu}";
+        Lstring = "e";
+        break;
+      case FinalStateFlavor::Mu3:
+        Zstring = "Z#rightarrow#it{#mu#mu}";
+        Lstring = "#mu";
+        break;
+      default:
+        break;
+      }
+      return xlabelPreformat.ReplaceAll("#it{l}", "#it{" + Lstring + "}")
+          .ReplaceAll("Z", Zstring)
+          .Data();
+    }
     return labelPerVariableZL.at(variable);
   }
 
@@ -690,8 +780,8 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
       getDataGraph(dataHisto, isBlinded && "ZZmass" == fullVariableName);
 
   LOG("[writePlot]\tLaying down the canvas", 1);
-  drawPlots<isCR>(canvas, stack, MCHistograms, data, fullVariableName.c_str(),
-                  periods, isBlinded);
+  drawPlots<isCR, crIdx>(canvas, stack, MCHistograms, data,
+                         fullVariableName.c_str(), fsFlav, periods, isBlinded);
 
   outFile->cd(outDir.c_str());
   canvas->Write();
