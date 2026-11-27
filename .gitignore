@@ -11,3 +11,5 @@
 /remoteData
 /scripts
 /mountRemote.sh
+/remoteCJLST
+*.so
