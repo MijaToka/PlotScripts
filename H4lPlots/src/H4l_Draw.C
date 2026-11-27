@@ -1,3 +1,4 @@
+#include <Math/Vector4Dfwd.h>
 #include <ROOT/RDF/HistoModels.hxx>
 #include <ROOT/RDF/InterfaceUtils.hxx>
 #include <Rtypes.h>
@@ -11,6 +12,7 @@
 #include <TGraphAsymmErrors.h>
 #include <TH1.h>
 #include <THStack.h>
+#include <TLatex.h>
 #include <TLegend.h>
 #include <TLine.h>
 #include <TMath.h>
@@ -50,28 +52,21 @@
 #define N_CR_HISTOS 5
 
 const std::map<std::string, float> LumiPerPeriod = {
-    {"2024", 109.95},
-    {"2025", 110.63},
+    {"2022", 7.99},         {"2022EE", 26.68}, {"2023preBPix", 17.96},
+    {"2023postBPix", 9.68}, {"2024", 109.95},  {"2025", 110.63},
 }; // Place-holder value
 
 const std::map<std::string, float> sqrtSPerPeriod = {
-    {"2024", 13.6},
-    {"2025", 13.6},
-};
-
-const std::map<std::string, std::string> latexVariableNames = {
-    {"ZZMass", "m_{#it{4l}}"},
-    {"ZZMass_4e", "m_{#it{4e}}"},
-    {"ZZMass_2e2mu", "m_{#it{2e2#mu}}"},
-    {"ZZMass_4mu", "m_{#it{4#mu}}"},
-    {"Z1Mass", "m_{Z_{1}}"},
-    {"Z2Mass", "m_{Z_{2}}"},
+    {"2022", 13.6},         {"2022EE", 13.6}, {"2023preBPix", 13.6},
+    {"2023postBPix", 13.6}, {"2024", 13.6},   {"2025", 13.6},
 };
 
 const std::unordered_map<std::string, std::vector<std::string>>
-    dataSetPerPeriod = {{"Run3",
-                         {"2022", "2022EE", "2023preBPix", "2023postBPix",
-                          "2024", "2025", "2026"}}};
+    dataSetPerPeriod = {
+        {"Run3",
+         {"2022", "2022EE", "2023preBPix", "2023postBPix", "2024", "2025"
+          /*, "2026"*/}},
+};
 
 struct blindInterval {
   Double_t low, up;
@@ -172,10 +167,9 @@ TH1D *agregateHistogram(TFile *file, const char *variable, int binning,
   return histogram;
 }
 
-std::array<TH1D *, N_SR_HISTOS> getMCHistosSR(TFile *inFile, Float_t lumi,
-                                              const char *variable,
-                                              FinalStateFlavor fsFlav,
-                                              int binning, unitIdx unit) {
+std::array<TH1D *, N_SR_HISTOS>
+getMCHistosSR(TFile *inFile, const std::string &period, const char *variable,
+              FinalStateFlavor fsFlav, int binning, unitIdx unit) {
 
   auto mkBundleName = [variable, fsFlav, binning, unit](
                           const std::string &sampleName) -> const std::string {
@@ -191,6 +185,8 @@ std::array<TH1D *, N_SR_HISTOS> getMCHistosSR(TFile *inFile, Float_t lumi,
     return agregateHistogram(inFile, variable, binning, unit, dataSet,
                              mkBundleName(sampleName), fsFlav);
   };
+
+  Float_t lumi = LumiPerPeriod.at(period);
 
   TH1D *signal = mkHistoSum("signal", MC_SignalH125);
   signal->Scale(lumi * 1000.);
@@ -212,7 +208,9 @@ std::array<TH1D *, N_SR_HISTOS> getMCHistosSR(TFile *inFile, Float_t lumi,
   ggTo->SetLineColor(TColor::GetColor(0, 0, 153));
   ggTo->SetFillColor(TColor::GetColor(75, 120, 255));
 
-  TH1D *DY = mkHistoSum("DY", MC_BkgDY);
+  bool isDYUnited = static_cast<bool>(getMCIdx(periodIndex.at(period)));
+  TH1D *DY =
+      mkHistoSum("DY", isDYUnited ? View(MC_BkgDYUnited) : View(MC_BkgDY));
   DY->Scale(lumi * 1000.);
   DY->SetLineColor(TColor::GetColor(0, 0, 153));
   DY->SetFillColor(kOrange);
@@ -241,10 +239,9 @@ enum MCHistoIdx {
 };
 }
 
-std::array<TH1D *, N_CR_HISTOS> getMCHistosCR(TFile *inFile, Float_t lumi,
-                                              const char *variable,
-                                              FinalStateFlavor fsFlav,
-                                              int binning, unitIdx unit) {
+std::array<TH1D *, N_CR_HISTOS>
+getMCHistosCR(TFile *inFile, const std::string &period, const char *variable,
+              FinalStateFlavor fsFlav, int binning, unitIdx unit) {
   auto mkBundleName = [variable, fsFlav, binning, unit](
                           const std::string &sampleName) -> const std::string {
     return TString::Format("%s_%i%s_%s%s", variable, binning,
@@ -253,12 +250,16 @@ std::array<TH1D *, N_CR_HISTOS> getMCHistosCR(TFile *inFile, Float_t lumi,
         .Data();
   };
 
-  auto mkHistoSum = [inFile, variable, binning, unit, fsFlav, mkBundleName](
-                        const std::string &sampleName, const auto &dataSet) {
+  auto mkHistoSum = [inFile, variable, binning, unit, fsFlav,
+                     mkBundleName](const std::string &sampleName,
+                                   const View<const char *> &dataSet) {
     return agregateHistogram(inFile, variable, binning, unit, dataSet,
                              mkBundleName(sampleName), fsFlav);
   };
-  TH1D *DY = mkHistoSum("DY_CR", MC_BkgDY);
+  Float_t lumi = LumiPerPeriod.at(period);
+  bool isDYUnited = static_cast<bool>(getMCIdx(periodIndex.at(period)));
+  TH1D *DY =
+      mkHistoSum("DY_CR", isDYUnited ? View(MC_BkgDYUnited) : View(MC_BkgDY));
   DY->Scale(lumi * 1000.);
   DY->SetLineColor(TColor::GetColor(0, 0, 153));
   DY->SetFillColor(kOrange);
@@ -273,7 +274,7 @@ std::array<TH1D *, N_CR_HISTOS> getMCHistosCR(TFile *inFile, Float_t lumi,
   TTTo->SetLineColor(TColor::GetColor(0, 0, 153));
   TTTo->SetFillColor(TColor::GetColor(255, 153, 102));
 
-  TH1D *WZTo = mkHistoSum("WZTo_CR", std::array<const char *, 1>{"WZto3LNu"});
+  TH1D *WZTo = mkHistoSum("WZTo_CR", MC_WZTo);
   WZTo->Scale(lumi * 1000.);
   WZTo->SetLineColor(TColor::GetColor(0, 0, 153));
   WZTo->SetFillColor(TColor::GetColor(175, 204, 255));
@@ -292,13 +293,13 @@ enum MCHistoIdx { ZZToIdx, WZToIdx, TTToIdx, ggToIdx, DYIdx };
 
 template <bool isCR>
 std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS>
-getMCHistos(TFile *inFile, Float_t lumi, const char *variable,
+getMCHistos(TFile *inFile, const std::string &period, const char *variable,
             FinalStateFlavor fsFlav, int binning, unitIdx unit) {
   LOG("[getMCHistos]\tGetting the histograms for the variable " << variable, 3);
   if constexpr (isCR) {
-    return getMCHistosCR(inFile, lumi, variable, fsFlav, binning, unit);
+    return getMCHistosCR(inFile, period, variable, fsFlav, binning, unit);
   } else {
-    return getMCHistosSR(inFile, lumi, variable, fsFlav, binning, unit);
+    return getMCHistosSR(inFile, period, variable, fsFlav, binning, unit);
   }
 }
 
@@ -400,11 +401,69 @@ void addLegendEntries(
   }
 }
 
-template <bool isCR>
+template <bool isCR, CRIdx crIdx>
+void addProcessLabel(TPad *pad, FinalStateFlavor fsFlav) {
+  pad->cd();
+  TLatex latex;
+  latex.SetNDC();
+  latex.SetTextFont(42);
+  latex.SetTextSize(0.75 * pad->GetTopMargin());
+
+  double x = 1.1 * pad->GetLeftMargin();
+  double y = 1 - 1.8 * pad->GetTopMargin();
+
+  std::ostringstream oss;
+  if constexpr (!isCR) {
+    oss << "ZZ#rightarrow ";
+  } else {
+    if constexpr (crIdx == P2F2) {
+      oss << "(2P2F CR) Z+#it{ll}#rightarrow ";
+    } else if constexpr (crIdx == P3F1) {
+      oss << "(3P1F CR) Z+#it{ll}#rightarrow ";
+    } else if constexpr (crIdx == SS) {
+      oss << "(SS CR) Z+#it{ll}#rightarrow ";
+    } else if constexpr (crIdx == ZL) {
+      oss << "Z+#it{l}#rightarrow ";
+    }
+  }
+  switch (fsFlav) {
+  case FinalStateFlavor::L4:
+    if constexpr (crIdx == ZL) {
+      oss << "3#it{l}";
+    } else {
+      oss << "4#it{l}";
+    }
+    break;
+  case FinalStateFlavor::E3:
+    oss << "#it{ee} + #it{e}";
+    break;
+  case FinalStateFlavor::E2Mu1:
+    oss << "#it{ee} + #it{#mu}";
+    break;
+  case FinalStateFlavor::Mu2E1:
+    oss << "#it{#mu#mu} + #it{e}";
+    break;
+  case FinalStateFlavor::Mu3:
+    oss << "#it{#mu#mu}+#it{#mu}";
+    break;
+  case FinalStateFlavor::E4:
+    oss << "4 #it{e}";
+    break;
+  case FinalStateFlavor::E2Mu2:
+    oss << "2 #it{e} + 2 #it{#mu}";
+    break;
+  case FinalStateFlavor::Mu4:
+    oss << "4 #it{#mu}";
+    break;
+  }
+  latex.DrawLatex(x, y, oss.str().c_str());
+}
+
+template <bool isCR, CRIdx crIdx>
 void drawPlots(
     TCanvas *canvas, THStack *mcStack,
     const std::array<TH1D *, isCR ? N_CR_HISTOS : N_SR_HISTOS> &mcHistos,
-    TGraphAsymmErrors *data, const char *variable,
+    TGraphAsymmErrors *data, const char *variable, FinalStateFlavor fsFlav,
     const std::vector<std::string> &periods, const bool blinded = true) {
 
   canvas->SetTicks();
@@ -456,7 +515,7 @@ void drawPlots(
 
   gPad->RedrawAxis();
 
-  TLegend *legend = new TLegend(0.65, 0.40, 0.95, 0.78);
+  TLegend *legend = new TLegend(0.75, 0.45, 0.95, 0.88);
   addLegendEntries<isCR>(legend, data, mcHistos, variable);
   legend->SetFillColor(kWhite);
   legend->SetLineColor(kWhite);
@@ -472,6 +531,8 @@ void drawPlots(
   }
   CMS header("Private", lumi, cmEnergy);
   header.formatPad(padStack);
+
+  addProcessLabel<isCR, crIdx>(padStack, fsFlav);
 
   padRatio->cd();
   bool firstHisto(true);
@@ -520,16 +581,20 @@ void drawPlots(
 }
 
 void assertPeriod(const std::string &period) {
-  assert(LumiPerPeriod.find(period) != LumiPerPeriod.end() &&
-         "Luminosity not configured for current period");
-  assert(sqrtSPerPeriod.find(period) != sqrtSPerPeriod.end() &&
-         "Center of mass energy not cofigured for current period");
-  assert(MC_FILL_FILES.find(period) != MC_FILL_FILES.end() &&
-         "H4lFill_MC file path not configured for current period");
-  assert(DATA_FILL_FILES.find(period) != DATA_FILL_FILES.end() &&
-         "H4lFill_Data fill path not configured for current period");
-  assert(periodIndex.find(period) != periodIndex.end() &&
-         "Data period not configured");
+  auto require = [&period](bool ok, const char *msg) {
+    if (!ok)
+      throw std::runtime_error(std::string(msg) + ": " + period);
+  };
+  require(LumiPerPeriod.find(period) != LumiPerPeriod.end(),
+          "Luminosity not configured for current period");
+  require(sqrtSPerPeriod.find(period) != sqrtSPerPeriod.end(),
+          "Center of mass energy not cofigured for current period");
+  require(MC_FILL_FILES.find(period) != MC_FILL_FILES.end(),
+          "H4lFill_MC file path not configured for current period");
+  require(DATA_FILL_FILES.find(period) != DATA_FILL_FILES.end(),
+          "H4lFill_Data fill path not configured for current period");
+  require(periodIndex.find(period) != periodIndex.end(),
+          "Data period not configured");
 }
 
 template <bool isMC> constexpr auto selectFillFiles() {
@@ -557,11 +622,11 @@ void openFillFile(const std::string &period,
 
 template <bool isCR> auto selectIdx() {
   if constexpr (isCR) {
-    return std::array<MCCRHistoIdx::MCHistoIdx, 5>{
+    return std::array<MCCRHistoIdx::MCHistoIdx, N_CR_HISTOS>{
         MCCRHistoIdx::DYIdx, MCCRHistoIdx::TTToIdx, MCCRHistoIdx::WZToIdx,
         MCCRHistoIdx::ZZToIdx, MCCRHistoIdx::ggToIdx};
   } else {
-    return std::array<MCSRHistoIdx::MCHistoIdx, 7>{
+    return std::array<MCSRHistoIdx::MCHistoIdx, N_SR_HISTOS>{
         MCSRHistoIdx::signalIdx, MCSRHistoIdx::EWIdx, MCSRHistoIdx::ZZTo4lIdx,
         MCSRHistoIdx::ggToIdx, /*MCSRHistoIdx::DYIdx, MCSRHistoIdx::TTIdx,*/
         MCSRHistoIdx::ZXIdx};
@@ -579,6 +644,34 @@ std::string makeXlabel(const char *variable, bool isCR,
                  << variable << " using " << variable << " instead",
              0);
       return variable;
+    }
+    if (fsFlav != FinalStateFlavor::L4) {
+      TString xlabelPreformat = labelPerVariableZL.at(variable);
+      std::string Zstring = "Z";
+      std::string Lstring = "l";
+      switch (fsFlav) {
+      case FinalStateFlavor::E3:
+        Zstring = "Z#rightarrow#it{ee}";
+        Lstring = "e";
+        break;
+      case FinalStateFlavor::E2Mu1:
+        Zstring = "Z#rightarrow#it{ee}";
+        Lstring = "#mu";
+        break;
+      case FinalStateFlavor::Mu2E1:
+        Zstring = "Z#rightarrow#it{#mu#mu}";
+        Lstring = "e";
+        break;
+      case FinalStateFlavor::Mu3:
+        Zstring = "Z#rightarrow#it{#mu#mu}";
+        Lstring = "#mu";
+        break;
+      default:
+        break;
+      }
+      return xlabelPreformat.ReplaceAll("#it{l}", "#it{" + Lstring + "}")
+          .ReplaceAll("Z", Zstring)
+          .Data();
     }
     return labelPerVariableZL.at(variable);
   }
@@ -640,8 +733,6 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
   bool firstPeriod(true);
   for (const std::string &period : periods) {
 
-    float lumi = LumiPerPeriod.at(period);
-
     LOG("[writePlot]\tExtracting histograms for fullVariableName="
             << fullVariableName << " in the final state "
             << static_cast<Int_t>(fsFlav) << " at " << binning << " "
@@ -649,7 +740,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
         2);
     if (firstPeriod) {
       MCHistograms =
-          getMCHistos<isCR>(inMCFiles[period], lumi, fullVariableName.c_str(),
+          getMCHistos<isCR>(inMCFiles[period], period, fullVariableName.c_str(),
                             fsFlav, binning, unit);
 
       dataHisto = agregateHistogram(
@@ -659,7 +750,7 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
       firstPeriod = !firstPeriod;
     } else {
       const auto currMCHistos =
-          getMCHistos<isCR>(inMCFiles[period], lumi, fullVariableName.c_str(),
+          getMCHistos<isCR>(inMCFiles[period], period, fullVariableName.c_str(),
                             fsFlav, binning, unit);
       for (auto idx : selectIdx<isCR>())
         MCHistograms[idx]->Add(currMCHistos[idx]);
@@ -689,8 +780,8 @@ void writePlot(TFile *outFile, std::map<std::string, TFile *> &inMCFiles,
       getDataGraph(dataHisto, isBlinded && "ZZmass" == fullVariableName);
 
   LOG("[writePlot]\tLaying down the canvas", 1);
-  drawPlots<isCR>(canvas, stack, MCHistograms, data, fullVariableName.c_str(),
-                  periods, isBlinded);
+  drawPlots<isCR, crIdx>(canvas, stack, MCHistograms, data,
+                         fullVariableName.c_str(), fsFlav, periods, isBlinded);
 
   outFile->cd(outDir.c_str());
   canvas->Write();
@@ -724,15 +815,16 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
 
   LOG("[H4l_Draw]\tOpening files corresponding to " << period << " data set",
       1);
-  for (const auto &period : periods) {
-    assertPeriod(period);
-    openFillFile</*isMC=*/true>(period, inMCFiles);
-    openFillFile</*isMC=*/false>(period, inDataFiles);
+  for (const auto &year : periods) {
+    assertPeriod(year);
+    openFillFile</*isMC=*/true>(year, inMCFiles);
+    openFillFile</*isMC=*/false>(year, inDataFiles);
   }
 
   setStyle();
 
-  std::filesystem::path outPath = REPO_PATH / "outputs" / "H4lDraw.root";
+  TString fileName = TString::Format("H4lDraw%s.root", period.c_str());
+  std::filesystem::path outPath = REPO_PATH / "outputs" / fileName.Data();
 
   LOG("[H4l_Draw]\tOutputs will be written to " << outPath, 1);
 
@@ -745,11 +837,16 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
   outFile->mkdir("CRSS");
   outFile->mkdir("CRZL");
 
+  // Z(Z/ll) plots
   for (const auto &[unit, variables] : variablesPerUnit) {
     std::string unitName = getUnitName(unit);
     for (const auto &variable : variables) {
       for (HistogramBinning binning : binGranularites.at(unit))
         for (FinalStateFlavor fsFlav : fsFlavors) {
+
+          if (unit == pdgIdxZZ && fsFlav != FinalStateFlavor::L4)
+            continue;
+
           writePlot</*isCR=*/false>(outFile, inMCFiles, inDataFiles, periods,
                                     variable.c_str(), fsFlav,
                                     int(binning.getBinSize()), unit, isBlinded);
@@ -766,21 +863,22 @@ void H4l_Draw(const std::string &period = "2025", const bool &isBlinded = true,
     }
   }
 
+  // Z+l Control region
   for (const auto &[unit, variables] : variablesPerUnitZL)
     for (const auto &variable : variables) {
       std::string xlabel = labelPerVariableZL.at(variable);
       for (HistogramBinning binning : binGranularites.at(unit)) {
         for (FinalStateFlavor fsFlav : fsFlavorsZL) {
+
+          if (unit == pdgIdxZL && fsFlav != FinalStateFlavor::L4)
+            continue;
+
           writePlot</*isCR=*/true, ZL>(
               outFile, inMCFiles, inDataFiles, periods, variable.c_str(),
               fsFlav, int(binning.getBinSize()), unit, isBlinded);
         }
       }
     }
-  for (FinalStateFlavor fsFlav : fsFlavorsZL) {
-    writePlot<true, ZL>(outFile, inMCFiles, inDataFiles, periods, "ETmiss",
-                        fsFlav, 2, m_l, isBlinded);
-  }
 
   LOG("[H4l_Draw]\tClosing file " << outPath, 0);
   outFile->cd();

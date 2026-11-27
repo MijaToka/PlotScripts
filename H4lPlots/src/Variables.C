@@ -42,6 +42,65 @@ const std::vector<HistogramBinning> etaBinGranularities = {
 const std::vector<HistogramBinning> angleBinGranularities = {
     HistogramBinning{.nBins = 50, .xlow = -TMath::Pi(), .xhigh = TMath::Pi()},
 };
+const std::vector<HistogramBinning> METBinGranularities = {
+    HistogramBinning{.nBins = 50, .xlow = 0, .xhigh = 100},
+};
+
+#define PDGIDXOFF 15
+#define MU3IDX 13 * 13 * 13
+#define MU4IDX 13 * 13 * 13 * 13
+
+const std::vector<HistogramBinning> pdgIdxZZBinGranularities = {
+    HistogramBinning{.nBins = 2 * (MU4IDX + PDGIDXOFF) + 1,
+                     .xlow = -(MU4IDX + PDGIDXOFF) - 0.5,
+                     .xhigh = (MU4IDX + PDGIDXOFF) + 0.5},
+};
+
+const std::vector<HistogramBinning> pdgIdxZLBinGranularities = {
+    HistogramBinning{.nBins = 2 * (MU3IDX + PDGIDXOFF) + 1,
+                     .xlow = -(MU3IDX + PDGIDXOFF) - 0.5,
+                     .xhigh = (MU3IDX + PDGIDXOFF) + 0.5},
+};
+
+enum unitIdx {
+  m_H,
+  m_Z,
+  m_l,
+  MET,
+  GeV_c,
+  angle,
+  cosAngle,
+  eta,
+  pdgIdxZZ,
+  pdgIdxZL,
+};
+
+const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
+    {m_H, higgsMassBinGranularities},     {m_Z, zMassBinGranularities},
+    {GeV_c, ptBinGranularities},          {angle, angleBinGranularities},
+    {cosAngle, cosBinGranularities},      {eta, etaBinGranularities},
+    {m_l, leptonMassBinGranularities},    {MET, METBinGranularities},
+    {pdgIdxZZ, pdgIdxZZBinGranularities}, {pdgIdxZL, pdgIdxZLBinGranularities},
+};
+
+const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
+    {m_H, {"mass"}},
+    {m_Z, {"Z1mass", "Z2mass"}},
+    {GeV_c, {"pt"}},
+    {angle, {"phi", "Phi", "Phi1"}},
+    {cosAngle, {"costheta1", "costheta2", "costhetastar"}},
+    {eta, {"eta"}},
+    {pdgIdxZZ, {"FSflav"}},
+};
+const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
+    {m_Z, {"mass"}},
+    {m_l, {"leptonmass"}},
+    {MET, {"ETmiss"}},
+    {GeV_c, {"pt", "leptonpt"}},
+    {angle, {"phi", "leptonphi"}},
+    {eta, {"eta", "leptoneta"}},
+    {pdgIdxZL, {"FSflav"}},
+};
 
 const std::map<std::string, std::string> labelPerVariable = {
     {"mass", "m_{#it{4l}}"},
@@ -54,31 +113,8 @@ const std::map<std::string, std::string> labelPerVariable = {
     {"costheta2", "cos#theta_{2}"},
     {"costhetastar", "cos#theta^{*}"},
     {"Phi", "#Phi_{#it{4l}}"},
-    {"Phi1", "#Phi1_{#it{4l}}"},
-};
-
-enum unitIdx { m_H, m_Z, m_l, GeV_c, angle, cosAngle, eta, Idx };
-const std::map<unitIdx, std::vector<HistogramBinning>> binGranularites = {
-    {m_H, higgsMassBinGranularities},  {m_Z, zMassBinGranularities},
-    {GeV_c, ptBinGranularities},       {angle, angleBinGranularities},
-    {cosAngle, cosBinGranularities},   {eta, etaBinGranularities},
-    {m_l, leptonMassBinGranularities},
-};
-
-const std::map<unitIdx, std::vector<std::string>> variablesPerUnit = {
-    {m_H, {"mass"}},
-    {m_Z, {"Z1mass", "Z2mass"}},
-    {GeV_c, {"pt"}},
-    {angle, {"phi", "Phi", "Phi1"}},
-    {cosAngle, {"costheta1", "costheta2", "costhetastar"}},
-    {eta, {"eta"}},
-};
-const std::map<unitIdx, std::vector<std::string>> variablesPerUnitZL = {
-    {m_Z, {"mass"}},
-    {m_l, {"leptonmass"}},
-    {GeV_c, {"pt", "leptonpt"}},
-    {angle, {"phi", "leptonphi"}},
-    {eta, {"eta", "leptoneta"}},
+    {"Phi1", "#Phi_{1}{}_{#it{4l}}"},
+    {"FSflav", "Event flavor pdgID"},
 };
 
 const std::map<std::string, std::string> labelPerVariableZL = {
@@ -90,7 +126,8 @@ const std::map<std::string, std::string> labelPerVariableZL = {
     {"leptonpt", "p_{T}^{#it{l}}"},
     {"leptoneta", "#eta_{#it{l}}"},
     {"leptonphi", "#phi_{#it{l}}"},
-    {"ETmiss", "E_{T}^{miss}"},
+    {"ETmiss", "E_{T}^{miss}{}_{Z+#it{l}}"},
+    {"FSflav", "Event flavor pdgID"},
 };
 
 template <typename T>
@@ -142,32 +179,23 @@ inline T flattenVariable(const ROOT::VecOps::RVec<T> &Cand, Short_t bestIdx) {
 
 template <bool hasCR>
 ROOT::RDF::RNode initializeVariables(ROOT::RDF::RNode df) {
-  df = df.Define("ZZFSflav",
-                 [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                   return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
-                 },
+  auto calculateFSflav = [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav,
+                            Short_t bestIdx) {
+    return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
+  };
+
+  df = df.Define("ZZFSflav", calculateFSflav,
                  {"ZZCand_Z1flav", "ZZCand_Z2flav", "bestCandIdx"})
            DEFINE_VARIABLES(SR_FLATTEN_VARIABLE);
 
   if constexpr (hasCR) {
     df =
-        df.Define("ZLL2P2FFSflav",
-                  [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                    return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
-                  },
+        df.Define("ZLL2P2FFSflav", calculateFSflav,
                   {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest2P2FIdx"})
-            .Define(
-                "ZLL3P1FFSflav",
-                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
-                },
-                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest3P1FIdx"})
-            .Define(
-                "ZLLSSFSflav",
-                [](ROOT::RVecI Z1Flav, ROOT::RVecI Z2Flav, Short_t bestIdx) {
-                  return bestIdx >= 0 ? Z1Flav[bestIdx] * Z2Flav[bestIdx] : 0;
-                },
-                {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbestSSIdx"})
+            .Define("ZLL3P1FFSflav", calculateFSflav,
+                    {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbest3P1FIdx"})
+            .Define("ZLLSSFSflav", calculateFSflav,
+                    {"ZLLCand_Z1flav", "ZLLCand_Z2flav", "ZLLbestSSIdx"})
             .Define("ZLFSflav",
                     [](ROOT::RVecI ZFlav, ROOT::RVecI LepFlav, Short_t bestZIdx,
                        Short_t bestZLIdx) {
@@ -208,13 +236,15 @@ std::string getUnitName(unitIdx unit) {
   case m_H:
   case m_Z:
   case m_l:
+  case MET:
     return "GeV";
   case GeV_c:
     return "GeV/c";
   case angle:
   case cosAngle:
   case eta:
-  case Idx:
+  case pdgIdxZZ:
+  case pdgIdxZL:
     return "";
   }
 }
