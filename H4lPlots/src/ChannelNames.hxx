@@ -74,6 +74,7 @@ constexpr std::array<const char *, 6> MC_BkgGGTo = {
     "ggTo2mu2tau_Contin_MCFM701", "ggTo4tau_Contin_MCFM701"};
 
 constexpr std::array<const char *, 2> MC_BkgDY = {"DYJetsTo2E", "DYJetsTo2Mu"};
+constexpr std::array<const char *, 1> MC_BkgDYUnited = {"DYJetsToLL"};
 
 constexpr std::array<const char *, 2> MC_BkgTT = {"TTWW", "TTZZ"};
 constexpr std::array<const char *, 1> MC_BkgTTTo = {"TTto2L2Nu"};
@@ -83,7 +84,10 @@ constexpr std::array<const char *, 46> MC_dataSetsFullH125 =
               MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
               MC_BkgTT, MC_BkgTTTo);
 
-constexpr View MC_dataSets(MC_dataSetsFullH125);
+constexpr std::array<const char *, 45> MC_dataSetsFullH125UnitedDY =
+    concatAll(MC_SignalH124, MC_SignalH124p5, MC_SignalH125, MC_SignalH125p5,
+              MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDYUnited,
+              MC_BkgTT, MC_BkgTTTo);
 
 constexpr std::array<const char *, 22> MC_dataSetsH124 =
     concatAll(MC_SignalH124, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
@@ -104,12 +108,116 @@ constexpr std::array<const char *, 22> MC_dataSetsH125p5 =
 constexpr std::array<const char *, 22> MC_dataSetsH126 =
     concatAll(MC_SignalH126, MC_BkgEW, MC_BkgQQZZ, MC_BkgGGTo, MC_BkgDY,
               MC_BkgTT, MC_BkgTTTo);
+constexpr std::array<const char *, 1> MC_WZTo =
+    std::array<const char *, 1>{"WZto3LNu"};
 
-constexpr std::array<const char *, 11> MC_ControlRegion =
-    concatAll(MC_BkgDY, MC_BkgGGTo, MC_BkgTTTo,
-              std::array<const char *, 1>{"WZto3LNu"}, MC_BkgQQZZ);
+constexpr std::array<const char *, 12> MC_ControlRegion = concatAll(
+    MC_BkgDY, MC_BkgDYUnited, MC_BkgGGTo, MC_BkgTTTo, MC_WZTo, MC_BkgQQZZ);
 
 // Data
+constexpr std::array<const char *, 2> Data_EGamma2022 = {
+    "EGamma2022C",
+    "EGamma2022D",
+};
+
+constexpr std::array<const char *, 3> Data_Muon2022 = {
+    "Muon2022C",
+    "Muon2022D",
+    "DoubleMu2022C",
+};
+
+constexpr std::array<const char *, 3> Data_MuonEG2022 = {
+    "MuonEG2022C",
+    "MuonEG2022D",
+    "SingleMu2022C",
+};
+constexpr std::array<const char *, 8> Data_dataSets2022 =
+    concatAll(Data_EGamma2022, Data_Muon2022, Data_MuonEG2022);
+
+constexpr std::array<const char *, 3> Data_EGamma2022EE = {
+    "EGamma2022E",
+    "EGamma2022F",
+    "EGamma2022G",
+};
+
+constexpr std::array<const char *, 3> Data_Muon2022EE = {
+    "Muon2022E",
+    "Muon2022F",
+    "Muon2022G",
+};
+
+constexpr std::array<const char *, 3> Data_MuonEG2022EE = {
+    "MuonEG2022E",
+    "MuonEG2022F",
+    "MuonEG2022G",
+};
+
+constexpr std::array<const char *, 9> Data_dataSets2022EE =
+    concatAll(Data_EGamma2022EE, Data_Muon2022EE, Data_MuonEG2022EE);
+
+constexpr std::array<const char *, 8> Data_EGamma2023preBPix = {
+    "EGamma02023Cv1", "EGamma02023Cv2", "EGamma02023Cv3", "EGamma02023Cv4",
+    "EGamma12023Cv1", "EGamma12023Cv2", "EGamma12023Cv3", "EGamma12023Cv4",
+};
+
+constexpr std::array<const char *, 8> Data_Muon2023preBPix = {
+    "Muon02023Cv1", "Muon02023Cv2", "Muon02023Cv3", "Muon02023Cv4",
+    "Muon12023Cv1", "Muon12023Cv2", "Muon12023Cv3", "Muon12023Cv4",
+};
+
+constexpr std::array<const char *, 4> Data_MuonEG2023preBPix = {
+    "MuonEG2023Cv1",
+    "MuonEG2023Cv2",
+    "MuonEG2023Cv3",
+    "MuonEG2023Cv4",
+};
+
+constexpr std::array<const char *, 20> Data_dataSets2023preBPix = concatAll(
+    Data_EGamma2023preBPix, Data_Muon2023preBPix, Data_MuonEG2023preBPix);
+
+constexpr std::array<const char *, 4> Data_EGamma2023postBPix = {
+    "EGamma02023Dv1",
+    "EGamma02023Dv2",
+    "EGamma12023Dv1",
+    "EGamma12023Dv2",
+};
+
+constexpr std::array<const char *, 4> Data_Muon2023postBPix = {
+    "Muon02023Dv1",
+    "Muon02023Dv2",
+    "Muon12023Dv1",
+    "Muon12023Dv2",
+};
+
+constexpr std::array<const char *, 2> Data_MuonEG2023postBPix = {
+    "MuonEG2023Dv1",
+    "MuonEG2023Dv2",
+};
+
+constexpr std::array<const char *, 10> Data_dataSets2023postBPix = concatAll(
+    Data_EGamma2023postBPix, Data_Muon2023postBPix, Data_MuonEG2023postBPix);
+
+constexpr std::array<const char *, 16> Data_EGamma2024 = {
+    "EGamma02024Cv1", "EGamma02024Dv1", "EGamma02024Ev1", "EGamma02024Fv1",
+    "EGamma02024Gv2", "EGamma02024Hv2", "EGamma02024Iv1", "EGamma02024Iv2",
+    "EGamma12024Cv1", "EGamma12024Dv1", "EGamma12024Ev1", "EGamma12024Fv1",
+    "EGamma12024Gv2", "EGamma12024Hv1", "EGamma12024Iv1", "EGamma12024Iv2",
+};
+
+constexpr std::array<const char *, 16> Data_Muon2024 = {
+    "Muon02024Cv1", "Muon02024Dv1", "Muon02024Ev1", "Muon02024Fv1",
+    "Muon02024Gv1", "Muon02024Hv1", "Muon02024Iv1", "Muon02024Iv2",
+    "Muon12024Cv1", "Muon12024Dv1", "Muon12024Ev1", "Muon12024Fv1",
+    "Muon12024Gv2", "Muon12024Hv2", "Muon12024Iv1", "Muon12024Iv2",
+};
+
+constexpr std::array<const char *, 8> Data_MuonEG2024 = {
+    "MuonEG2024Cv1", "MuonEG2024Dv1", "MuonEG2024Ev1", "MuonEG2024Fv2",
+    "MuonEG2024Gv3", "MuonEG2024Hv2", "MuonEG2024Iv2", "MuonEG2024Iv2v2",
+};
+constexpr std::array<const char *, 40> Data_dataSets2024 =
+    concatAll(Data_EGamma2024, Data_Muon2024, Data_MuonEG2024);
+
 constexpr std::array<const char *, 32> Data_EGamma2025 = {
     "EGamma02025Bv1", "EGamma02025Cv1", "EGamma02025Cv2", "EGamma02025Dv1",
     "EGamma02025Ev1", "EGamma12025Bv1", "EGamma02025Fv1", "EGamma02025Fv2",
@@ -135,34 +243,35 @@ constexpr std::array<const char *, 8> Data_MuonEG2025 = {
 const std::array<const char *, 56> Data_dataSets2025 =
     concatAll(Data_EGamma2025, Data_Muon2025, Data_MuonEG2025);
 
-constexpr std::array<const char *, 16> Data_EGamma2024 = {
-    "EGamma02024Cv1", "EGamma02024Dv1", "EGamma02024Ev1", "EGamma02024Fv1",
-    "EGamma02024Gv2", "EGamma02024Hv2", "EGamma02024Iv1", "EGamma02024Iv2",
-    "EGamma12024Cv1", "EGamma12024Dv1", "EGamma12024Ev1", "EGamma12024Fv1",
-    "EGamma12024Gv2", "EGamma12024Hv1", "EGamma12024Iv1", "EGamma12024Iv2",
-};
+constexpr std::array<View<const char *>, 2> MC_dataSets = {
+    MC_dataSetsFullH125, MC_dataSetsFullH125UnitedDY};
+enum mcDataSet { separatedDY, unitedDY };
 
-constexpr std::array<const char *, 16> Data_Muon2024 = {
-    "Muon02024Cv1", "Muon02024Dv1", "Muon02024Ev1", "Muon02024Fv1",
-    "Muon02024Gv1", "Muon02024Hv1", "Muon02024Iv1", "Muon02024Iv2",
-    "Muon12024Cv1", "Muon12024Dv1", "Muon12024Ev1", "Muon12024Fv1",
-    "Muon12024Gv2", "Muon12024Hv2", "Muon12024Iv1", "Muon12024Iv2",
-};
+constexpr std::array<View<const char *>, 6> Data_dataSets{
+    Data_dataSets2022,       Data_dataSets2022EE, Data_EGamma2023preBPix,
+    Data_EGamma2023postBPix, Data_dataSets2024,   Data_dataSets2025};
+enum dataPeriod { y2022, y2022EE, y2023preBPix, y2023postBPix, y2024, y2025 };
 
-constexpr std::array<const char *, 8> Data_MuonEG2024 = {
-    "MuonEG2024Cv1", "MuonEG2024Dv1", "MuonEG2024Ev1", "MuonEG2024Fv2",
-    "MuonEG2024Gv3", "MuonEG2024Hv2", "MuonEG2024Iv2", "MuonEG2024Iv2v2",
-};
-constexpr std::array<const char *, 40> Data_dataSets2024 =
-    concatAll(Data_EGamma2024, Data_Muon2024, Data_MuonEG2024);
+constexpr mcDataSet getMCIdx(dataPeriod year) {
+  switch (year) {
+  case y2022:
+  case y2022EE:
+  case y2023preBPix:
+  case y2023postBPix:
+    return unitedDY;
+  case y2024:
+  case y2025:
+    return separatedDY;
+  }
+}
 
-constexpr std::array<View<const char *>, 2> Data_dataSets{Data_dataSets2024,
-                                                          Data_dataSets2025};
-
-enum dataPeriod { y2024, y2025 };
-
-const std::map<std::string, dataPeriod> periodIndex = {{"2024", y2024},
-                                                       {"2025", y2025}};
+const std::map<std::string, dataPeriod> periodIndex = {
+    {"2022", y2022},
+    {"2022EE", y2022EE},
+    {"2023preBPix", y2023preBPix},
+    {"2023postBPix", y2023postBPix},
+    {"2024", y2024},
+    {"2025", y2025}};
 
 enum class FinalStateFlavor {
   L4,

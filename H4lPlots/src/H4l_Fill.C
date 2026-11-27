@@ -168,7 +168,7 @@ initializeHistogramModels(const std::string &sampleName) {
       for (HistogramBinning binning : binGranularites.at(unit)) {
         for (FinalStateFlavor fsFlav : fsFlavors) {
 
-          if (unit == Idx && fsFlav != FinalStateFlavor::L4)
+          if (unit == pdgIdxZZ && fsFlav != FinalStateFlavor::L4)
             continue;
 
           auto currModel = HistogramModel(/*isCR=*/false, variable, sampleName,
@@ -204,7 +204,7 @@ initializeHistogramModels(const std::string &sampleName) {
         for (HistogramBinning binning : binGranularites.at(unit)) {
           for (FinalStateFlavor fsFlav : fsFlavorsZL) {
 
-            if (unit == Idx && fsFlav != FinalStateFlavor::L4)
+            if (unit == pdgIdxZL && fsFlav != FinalStateFlavor::L4)
               continue;
 
             auto currModel = HistogramModel(
@@ -220,35 +220,6 @@ initializeHistogramModels(const std::string &sampleName) {
       }
   }
 
-  // Final state flavor plots as a sanity check
-  //  HistogramModel flavorPlot = HistogramModel(
-  //      /*isCR=*/false,
-  //      /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor pdgID",
-  //      /*binning=*/
-  //      HistogramBinning{.nBins = static_cast<Int_t>(FinalStateFlavor::Mu4) -
-  //                                static_cast<Int_t>(FinalStateFlavor::E4) +
-  //                                1,
-  //                       .xlow = static_cast<Int_t>(FinalStateFlavor::E4),
-  //                       .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
-  //      /*unit=*/Idx, FinalStateFlavor::L4);
-  //
-  //  models.push_back(flavorPlot);
-  //  if constexpr (hasCR) {
-  //    for (CRIdx crIdx : {P2F2, P3F1, SS, ZL}) {
-  //      HistogramModel flavorPlot = HistogramModel(
-  //          /*isCR=*/true,
-  //          /*variable=*/"FSflav", sampleName, /*xlabel=*/"Event flavor
-  //          pdgID",
-  //          /*binning=*/
-  //          HistogramBinning{
-  //              .nBins = 2 * static_cast<Int_t>(FinalStateFlavor::Mu4) + 1,
-  //              .xlow = -static_cast<Int_t>(FinalStateFlavor::Mu4),
-  //              .xhigh = static_cast<Int_t>(FinalStateFlavor::Mu4)},
-  //          /*unit=*/Idx, FinalStateFlavor::L4, crIdx);
-  //
-  //      models.push_back(flavorPlot);
-  //    }
-  //  }
   return models;
 }
 
@@ -310,19 +281,26 @@ void fillHistos(const DataSet &sample, TFile &outFile) {
 }
 
 template <bool isMC> constexpr auto selectDataSet(const std::string &period) {
-  if constexpr (isMC)
-    return MC_dataSets;
-  else {
-    assert(periodIndex.find(period) != periodIndex.end() &&
-           "Data period not configured");
+  assert(periodIndex.find(period) != periodIndex.end() &&
+         "Data period not configured");
+  if constexpr (isMC) {
+    LOG("[selectDataSet]\tUsing MC data set configuration"
+            << getMCIdx(periodIndex.at(period)) << " for period " << period
+            << "'s MC with period id=" << periodIndex.at(period),
+        1);
+    return MC_dataSets[getMCIdx(periodIndex.at(period))];
+  } else {
+    LOG("[selectDataSet]\tUsing data sets "
+            << periodIndex.at(period) << " for period " << period << "'s Data",
+        1);
     return Data_dataSets[periodIndex.at(period)];
   }
 }
 
 template <bool isMC> void run(const std::string &period = "2025") {
 
-  TString outName = TString::Format("H4lFill_%s%s.root", isMC ? "MC" : "Data",
-                                    period.c_str());
+  TString outName = TString::Format("Fill/H4lFill_%s%s.root",
+                                    isMC ? "MC" : "Data", period.c_str());
   View<const char *> dataSets = selectDataSet<isMC>(period);
   auto INPUT_PATH = isMC ? MC_PATHS : DATA_PATHS;
 
